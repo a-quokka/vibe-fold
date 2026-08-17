@@ -18,9 +18,10 @@ GPT로 스프라이트를 생성해 이 챕터에 넣기 위한 작업 문서. �
 | 2 | `assets/odysseus.webp` | ✅ 완료 |
 | 3 | `assets/rock-lip.webp` | ✅ 완료 |
 | 4 | `assets/ship.webp` | ✅ 완료 (2차. 1차는 돛 때문에 반려 — [사유](#️-돛을-그리지-말-것)) |
-| 5 | `assets/crew.webp` | 대기 |
-| 6 | `assets/backdrop.webp` | 대기 |
-| 7 | `assets/wave.webp` | 대기 |
+| 5 | `assets/crew.webp` | ✅ 완료 |
+| 6 | `assets/backdrop.webp` | ✅ 완료 |
+| 7 | `assets/wave.webp` | ✅ 완료 |
+| 8 | `assets/og.jpg` · `assets/icon.svg` | ✅ 완료 |
 
 ### 코드로 남긴다
 
@@ -63,7 +64,11 @@ ch-seirenui-norae/
   assets/  siren  odysseus  rock-lip  ship  crew  backdrop  wave  (.webp)
 ```
 
-**용량 예산** — 챕터 폴더 전체 **300KB 이하**. 에셋은 `content/` → `public/chapters/` → `dist/`로 **3중 복사**되므로 실측의 3배가 레포에 쌓인다. 참고: 현재 폴더 28KB, 예시 볼륨 4편 전체 96KB.
+**용량 예산** — 페이지가 실제로 내려받는 에셋 합계 **250KB 이하**를 목표로 한다.
+
+> **정정.** 이 문서 초판은 "`content/` → `public/chapters/` → `dist/` 3중 복사라 레포에 3배가 쌓인다"고 적었다. **틀렸다.** `.gitignore`가 `public/chapters/`와 `dist/`를 모두 제외하므로 **git에는 `content/` 1부만 들어간다.** 3중 복사는 로컬 디스크에서만 일어난다.
+>
+> 따라서 실제 제약은 두 가지다 — **레포 크기(에셋당 1배)**와 **페이지 로딩(페이지가 실제로 받는 것만)**. `og.jpg`처럼 크롤러만 가져가는 파일은 로딩에 전혀 영향이 없으므로 예산에서 별도로 센다.
 
 ---
 
@@ -422,6 +427,44 @@ OUTPUT
 - No drop shadow, no reflection.
 - Canvas 1536x256.
 ```
+
+---
+
+## 8. `assets/og.jpg` · `assets/icon.svg` — 공유 카드와 챕터 아이콘
+
+작품이 아니라 **링크가 공유될 때** 쓰이는 두 장.
+
+| 항목 | `og.jpg` | `icon.svg` |
+|---|---|---|
+| 크기 | **1200×630** (OG 표준) | 64×64 viewBox |
+| 포맷 | JPEG q78 | SVG |
+| 용량 | 105KB | 436B |
+| 쓰임 | `og:image`, `twitter:image` | `<link rel="icon">` |
+| 페이지 로딩 영향 | **없음** — 크롤러만 가져감 | 있음(0.4KB) |
+
+**생성 방식이 특이하다.** OG 카드는 이미지 생성기로 뽑지 않고, **챕터 에셋을 그대로 얹은 HTML을 헤드리스 크롬으로 1200×630 렌더**했다. 그래서 작품과 완전히 같은 그림·같은 팔레트가 나오고, 스프라이트를 갈면 카드도 다시 뽑기만 하면 된다. 문구도 텍스트라 오탈자가 안 난다.
+
+```bash
+# scratchpad/og/card.html 을 렌더
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless --disable-gpu --hide-scrollbars \
+  --virtual-time-budget=4000 --window-size=1200,630 \
+  --screenshot=og.png "file://$PWD/card.html"
+sips -s format jpeg -s formatOptions 78 og.png --out og.jpg
+```
+
+아이콘은 이 작품에서 피해야 하는 **음표**를 땄다. 16px에서도 형태가 남도록 도형을 단순하게 유지하고, 밝은/어두운 브라우저 크롬 양쪽에서 읽히도록 짙은 남색 타일 위에 금색으로 올렸다.
+
+### 셸이 읽어야 동작한다
+
+`meta.yaml`에 다음 두 필드를 넣었다:
+
+```yaml
+og: assets/og.jpg
+icon: assets/icon.svg
+```
+
+다만 `<head>`를 만드는 건 `src/layouts/BaseLayout.astro`이고, 초기 셸에는 **OG 태그가 아예 없고 파비콘도 `/favicon.svg` 고정**이었다. 즉 이 두 파일은 셸이 필드를 읽도록 고쳐야 살아난다. 챕터 PR과 별도로 셸 PR을 낸 이유다.
 
 ---
 
