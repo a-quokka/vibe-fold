@@ -457,11 +457,11 @@ sips -s format jpeg -s formatOptions 78 og.png --out og.jpg
 
 ### 셸이 읽어야 동작한다
 
-`meta.yaml`에 다음 두 필드를 넣었다:
+`meta.yaml`에 다음 두 필드를 넣었다. 이름은 PR #1이 제안한 Artwork 모델의 어휘(`thumbnail`·`description`·`creator`)에 맞췄다:
 
 ```yaml
-og: assets/og.jpg
-icon: assets/icon.svg
+shareImage: assets/og.jpg
+favicon: assets/icon.svg
 ```
 
 다만 `<head>`를 만드는 건 `src/layouts/BaseLayout.astro`이고, 초기 셸에는 **OG 태그가 아예 없고 파비콘도 `/favicon.svg` 고정**이었다. 즉 이 두 파일은 셸이 필드를 읽도록 고쳐야 살아난다. 챕터 PR과 별도로 셸 PR을 낸 이유다.
