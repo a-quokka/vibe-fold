@@ -307,6 +307,8 @@
 			loadArt("climberHang", "assets/climber-hang.webp");
 			loadArt("climberFall", "assets/climber-fall.webp");
 			loadArt("mother", "assets/mother.webp");
+			loadArt("siblings", "assets/siblings.webp");
+			loadArt("branch", "assets/branch.webp");
 			for (let i = 0; i < 4; i++) loadArt("ridge" + i, "assets/ridge-" + i + ".webp");
 			for (let i = 0; i < 4; i++) loadArt("stalk" + i, "assets/stalk-" + i + ".webp");
 
@@ -446,13 +448,17 @@
 				const RATE = 1 / 6; // seconds of holding for a full climb
 				const BEATS = 1.7; // hand-over-hand grips per second
 				const PULSE_MEAN = 0.788; // keeps the grip rhythm from slowing the average climb
+				const PRAY_RATE = 1 / 2.6; // seconds of holding to bring the ropes down
 				const CAP = {
+					prayer: ["They asked the sky, and the sky let down two ropes.", "하늘이 동아줄을 내렸다"],
 					climb: ["Two ropes come down. Only one of them holds.", "해와 달이 된 오누이"],
 					sunmoon: ["The children became the sun and the moon.", "오누이는 해와 달이 되었다"],
 					fall: ["The rope gave way, and the field closed over.", "수수밭이 술렁였다"],
 				};
 
-				let phase = "climb"; // climb → rise | fall → end
+				let phase = "prayer"; // prayer → climb → rise | fall → end
+				let prayer = 0; // 0-1, how far the sky has been asked
+				let lastX = -1; // where the hand was when the ropes arrived
 				let ending = null;
 				let climb = 0;
 				let grab = -1;
@@ -524,7 +530,9 @@
 				}
 
 				function reset() {
-					phase = "climb";
+					phase = "prayer";
+					prayer = 0;
+					lastX = -1;
 					ending = null;
 					climb = 0;
 					grab = -1;
@@ -556,13 +564,14 @@
 						s.bow = 0;
 						s.hit = false;
 					}
+					elTitle.style.opacity = "0"; // the card belongs to the opening scene
 					elCap.style.opacity = "1";
 					elEn.style.opacity = "1";
 					elKo.style.opacity = "1";
 					elEnd.style.opacity = "0";
 					elAgain.style.opacity = "0";
-					elHint.textContent = "줄을 붙잡고 있으면 올라갑니다";
-					setCaption("climb");
+					elHint.textContent = "화면을 누르고 있으세요";
+					setCaption("prayer");
 				}
 
 				const climbY = () => h * 0.58;
@@ -672,6 +681,11 @@
 						if (endT > 1) goTo(sceneGate, 0.9);
 						return;
 					}
+					if (phase === "prayer") {
+						lastX = pos(e).x;
+						holding = true;
+						return;
+					}
 					if (phase !== "climb") return;
 					const p = pos(e);
 					const i = nearestRope(p.x, p.y);
@@ -687,6 +701,14 @@
 				function onKey(e) {
 					if (phase === "end") {
 						if (endT > 1) goTo(sceneGate, 0.9);
+						return;
+					}
+					if (phase === "prayer") {
+						if (e.key === "ArrowLeft") lastX = 0;
+						else if (e.key === "ArrowRight") lastX = w;
+						else if (e.key !== "ArrowDown" && e.key !== " " && e.key !== "Enter") return;
+						holding = true;
+						e.preventDefault();
 						return;
 					}
 					if (e.key === "ArrowLeft") chooseRope(0);
@@ -708,7 +730,7 @@
 				}
 
 				function drawSky() {
-					const lift = clamp01((climb - 0.55) / 0.45);
+					const lift = Math.max(clamp01((climb - 0.55) / 0.45), prayer * 0.55);
 					const dawn = dawnAmount();
 					const top = mixArr(mixArr([16, 19, 43], [58, 42, 98], lift * 0.55), [214, 142, 96], dawn);
 					const midY = mixArr([19, 18, 45], [104, 72, 116], dawn);
@@ -852,6 +874,7 @@
 					if (fade <= 0) return;
 
 					let bottom = Math.min(h + 20, fieldTop() - 12);
+					if (phase === "prayer") bottom = Math.min(bottom, mix(-30, climbY() + 14, prayer));
 					if (r.snapped) bottom = Math.min(bottom, climbY() + (climb - r.snapAt) * SCROLL);
 					if (bottom < -20) return;
 
@@ -957,7 +980,7 @@
 
 				// x is the rope itself; the body hangs beside it so the silhouette stays readable.
 				function drawClimber() {
-					if (phase === "end") return; // the field has closed over, or the sky has taken them
+					if (phase === "end" || phase === "prayer") return; // the field has closed over, or the sky has taken them
 					const s = scale();
 					if (phase === "rise") {
 						const k = clamp01(riseT / 1);
@@ -986,6 +1009,74 @@
 					const pulling =
 						phase === "climb" && holding && grab >= 0 && Math.sin(beat * TAU) > 0;
 					return (pulling ? art.climberUp : art.climberHang) || art.climberHang || art.climberUp;
+				}
+
+				// The branch they wait on and the two of them on it. Assets if they
+				// arrived; otherwise the shapes this piece was built from, so the phase
+				// works before the drawings do.
+				const branchY = () => h * 0.62;
+				// Measured off the drawings: where the bark's upper surface sits inside
+				// the branch art, and where the pair's weight falls across theirs.
+				const BRANCH_TOP = 0.489;
+				const BRANCH_SEAT = 0.7; // along its length, the stretch they sit on
+				const SIB_CX = 0.472;
+
+				function drawBranch() {
+					const s = scale();
+					const by = branchY();
+					const tip = w * 0.62;
+					const img = art.branch;
+					if (img) {
+						const bh = h * 0.26;
+						const bw = bh * (img.width / img.height);
+						// line the bark's surface up with the seat line, not the art's edge
+						ctx.drawImage(img, w * 0.5 - BRANCH_SEAT * bw, by - BRANCH_TOP * bh, bw, bh);
+						return;
+					}
+					ctx.fillStyle = "#0e0b16";
+					ctx.beginPath();
+					ctx.moveTo(-10, by - 9 * s);
+					ctx.quadraticCurveTo(w * 0.3, by - 5 * s, tip, by - 1.6 * s);
+					ctx.lineTo(tip, by + 1.6 * s);
+					ctx.quadraticCurveTo(w * 0.3, by + 6 * s, -10, by + 11 * s);
+					ctx.closePath();
+					ctx.fill();
+				}
+
+				function drawSiblings() {
+					const s = scale();
+					const by = branchY();
+					const img = art.siblings;
+					if (img) {
+						const sh = 48 * s;
+						const sw = sh * (img.width / img.height);
+						// their seat is the bottom edge of the art, so it lands on the bark
+						ctx.drawImage(img, w * 0.5 - SIB_CX * sw, by - sh, sw, sh);
+						return;
+					}
+					drawFigure(null, w * 0.5 - 7 * s, by - 13 * s, s * 0.92, 0, 0, "grip");
+					drawFigure(null, w * 0.5 + 6 * s, by - 11 * s, s * 0.76, 0, 0, "grip");
+				}
+
+				// Down in the dark below them, waiting.
+				function drawWatcher() {
+					const s = scale();
+					const y = h * 0.86;
+					const r = 2.4 * s;
+					for (const d of [-1, 1]) {
+						const x = w * 0.42 + d * 5.2 * s;
+						const g = ctx.createRadialGradient(x, y, 0, x, y, r * 8);
+						g.addColorStop(0, "rgba(242,193,78,0.22)");
+						g.addColorStop(1, "rgba(242,193,78,0)");
+						ctx.fillStyle = g;
+						ctx.beginPath();
+						ctx.arc(x, y, r * 8, 0, TAU);
+						ctx.fill();
+						ctx.fillStyle = "#f2c14e";
+						ctx.beginPath();
+						ctx.ellipse(x, y, r, r * 1.15, 0, 0, TAU);
+						ctx.fill();
+					}
 				}
 
 				function drawSunMoon() {
@@ -1041,6 +1132,24 @@
 					if (grab >= 0) mount = Math.min(1, mount + dt * 9);
 
 					const before = climb;
+
+					if (phase === "prayer") {
+						prayer = clamp01(prayer + (holding ? dt * PRAY_RATE : -dt * PRAY_RATE * 0.7));
+						if (prayer >= 1) {
+							phase = "climb";
+							setCaption("climb");
+							elHint.textContent = "";
+							// Still holding when they arrive? Then the hand that brought them
+							// down is already on one, and which one is whatever it was
+							// nearest — you do not get to know which rope is the rotten one.
+							if (holding) {
+								chooseRope(lastX < 0 ? 0 : Math.max(0, nearestRope(lastX, climbY())));
+								// No climbing up from the field: the hand that brought the rope
+								// down is already on it.
+								mount = 1;
+							}
+						}
+					}
 
 					if (phase === "climb") {
 						if (holding) climbStep(dt);
@@ -1123,6 +1232,11 @@
 					drawHorizon();
 					drawLight();
 					drawField();
+					if (phase === "prayer") {
+						drawWatcher();
+						drawBranch();
+						drawSiblings();
+					}
 					if (phase !== "end" || ending === "fall") {
 						for (let i = 0; i < ropes.length; i++) drawRope(i);
 					}
