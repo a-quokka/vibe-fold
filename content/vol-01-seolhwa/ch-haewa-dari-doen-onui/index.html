@@ -104,6 +104,11 @@
 				word-break: keep-all;
 			}
 
+			.caption .en,
+			.caption .ko {
+				transition: opacity var(--dur) var(--ease);
+			}
+
 			.caption .ko {
 				margin-top: 0.15rem;
 				color: var(--gold);
@@ -270,6 +275,13 @@
 
 			const scale = () => Math.max(1, Math.min(w, h) / 300);
 
+			// Bone-white to gold. Returns the "rgba(r,g,b," prefix; the twinkle
+			// supplies the alpha each frame. Every scene with a night sky wants it.
+			function starColour(warm) {
+				const c = mixArr([236, 226, 196], [247, 205, 130], warm * STAR_WARMTH);
+				return "rgba(" + Math.round(c[0]) + "," + Math.round(c[1]) + "," + Math.round(c[2]) + ",";
+			}
+
 			// Optional painted assets. Each one is drawn if it loads and silently
 			// ignored if it does not, so the piece never depends on a file landing.
 			// Local paths only — the chapter must not reach the network.
@@ -294,6 +306,8 @@
 			loadArt("climberUp", "assets/climber-up.webp");
 			loadArt("climberHang", "assets/climber-hang.webp");
 			loadArt("climberFall", "assets/climber-fall.webp");
+			loadArt("mother", "assets/mother.webp");
+			for (let i = 0; i < 4; i++) loadArt("ridge" + i, "assets/ridge-" + i + ".webp");
 			for (let i = 0; i < 4; i++) loadArt("stalk" + i, "assets/stalk-" + i + ".webp");
 
 			// The falling pose is centred on its own mass, not on the fists — it spins
@@ -438,7 +452,7 @@
 					fall: ["The rope gave way, and the field closed over.", "수수밭이 술렁였다"],
 				};
 
-				let phase = "title"; // title → climb → rise | fall → end
+				let phase = "climb"; // climb → rise | fall → end
 				let ending = null;
 				let climb = 0;
 				let grab = -1;
@@ -510,7 +524,7 @@
 				}
 
 				function reset() {
-					phase = "title";
+					phase = "climb";
 					ending = null;
 					climb = 0;
 					grab = -1;
@@ -542,8 +556,9 @@
 						s.bow = 0;
 						s.hit = false;
 					}
-					elTitle.style.opacity = "1";
 					elCap.style.opacity = "1";
+					elEn.style.opacity = "1";
+					elKo.style.opacity = "1";
 					elEnd.style.opacity = "0";
 					elAgain.style.opacity = "0";
 					elHint.textContent = "줄을 붙잡고 있으면 올라갑니다";
@@ -588,11 +603,6 @@
 
 				function chooseRope(i) {
 					if (i < 0) return;
-					if (phase === "title") {
-						phase = "climb";
-						elTitle.style.opacity = "0";
-						elHint.textContent = "";
-					}
 					if (phase !== "climb") return;
 					if (grab !== -1 && grab !== i) {
 						climb = Math.max(0, climb - 0.035);
@@ -659,10 +669,10 @@
 				function onDown(e) {
 					e.preventDefault();
 					if (phase === "end") {
-						if (endT > 1) reset();
+						if (endT > 1) goTo(sceneGate, 0.9);
 						return;
 					}
-					if (phase !== "title" && phase !== "climb") return;
+					if (phase !== "climb") return;
 					const p = pos(e);
 					const i = nearestRope(p.x, p.y);
 					if (i < 0) return;
@@ -676,7 +686,7 @@
 
 				function onKey(e) {
 					if (phase === "end") {
-						if (endT > 1) reset();
+						if (endT > 1) goTo(sceneGate, 0.9);
 						return;
 					}
 					if (e.key === "ArrowLeft") chooseRope(0);
@@ -709,13 +719,6 @@
 					g.addColorStop(1, rgb(bottom, bottom, 0));
 					ctx.fillStyle = g;
 					ctx.fillRect(0, 0, w, h);
-				}
-
-				// Bone-white to gold. Returns the "rgba(r,g,b," prefix; the twinkle supplies
-				// the alpha each frame.
-				function starColour(warm) {
-					const c = mixArr([236, 226, 196], [247, 205, 130], warm * STAR_WARMTH);
-					return "rgba(" + Math.round(c[0]) + "," + Math.round(c[1]) + "," + Math.round(c[2]) + ",";
 				}
 
 				function drawStars() {
@@ -1142,6 +1145,399 @@
 				return { name: "ropes", enter, update, draw, down: onDown, up: onUp, key: onKey, keyUp: onKeyUp };
 			})();
 
+			// ── Scene 1 · the pass ──────────────────────────────────────────────
+			// She walks the ridges with rice cakes on her head and a tiger behind
+			// her. A tap hands one over and buys a hill. The cakes run out either
+			// way — the dread rises on its own clock, so hurrying and stalling end
+			// in the same place. That is the tale, not a difficulty setting.
+			const sceneGate = (() => {
+				const RICE_START = 3;
+				const MENACE_RATE = 1 / 5; // seconds of doing nothing to fill it
+				const TAP_RELIEF = 0.35;
+				const DEMAND_AT = 0.55; // where the tiger stops following and asks
+				const THROW_TIME = 1.05; // seconds a cake spends in the air
+				const WALK = 26; // px/s the world drifts past while she walks
+				const GRAVITY = 940;
+				const MOTHER_H = 52; // × scale(); the children are 30
+				const MOTHER_RIM_Y = 0.0254; // basket rim, measured off the artwork
+				const MOTHER_RIM_X = 0.4957;
+				const MOTHER_RIM_W = 0.7652;
+				const LAYER_SPEED = [0.07, 0.15, 0.31, 0.62];
+				const LAYER_H = [0.3, 0.34, 0.4, 0.5];
+				const CAP_GATE = [
+					"Give me a rice cake and I will not eat you.",
+					"떡 하나 주면 안 잡아먹지",
+				];
+
+				let menace = 0;
+				let rice = RICE_START;
+				let travel = 0;
+				let surge = 0;
+				let stride = 0;
+				let blinkT = 2;
+				let demanding = false;
+				let flare = 0;
+				let taught = false;
+				let taken = 0; // >0 once she is caught: the eyes swell and we cut
+				let started = false;
+				const cakes = [];
+				const sky = [];
+
+				// The ridges are backdrop and sit low; she walks the crest line above
+				// them, so a black silhouette always has sky behind it rather than
+				// more black.
+				// The near ridge's skyline, sampled off the artwork at build time. The
+				// chapter runs without allow-same-origin, so an image drawn to a canvas
+				// taints it and getImageData throws — the shape cannot be read here.
+				const CREST = [
+					0.458, 0.467, 0.492, 0.469, 0.45, 0.461, 0.461, 0.447, 0.45, 0.464, 0.489, 0.497,
+					0.519, 0.592, 0.636, 0.614, 0.658, 0.7, 0.664, 0.622, 0.625, 0.603, 0.581, 0.572,
+					0.575, 0.583, 0.622, 0.619, 0.622, 0.661, 0.733, 0.758, 0.739, 0.711, 0.697, 0.686,
+					0.708, 0.769, 0.789, 0.786, 0.742, 0.725, 0.742, 0.722, 0.7, 0.692, 0.756, 0.775,
+					0.794, 0.744, 0.783, 0.778, 0.778, 0.753, 0.764, 0.647, 0.6, 0.586, 0.611, 0.603,
+					0.656, 0.65, 0.628, 0.664, 0.617, 0.631, 0.569, 0.569, 0.514, 0.556, 0.558, 0.458,
+					0.433, 0.433, 0.419, 0.392, 0.378, 0.389, 0.403, 0.408, 0.497, 0.517, 0.517, 0.553,
+					0.528, 0.492, 0.544, 0.558, 0.442, 0.389, 0.375, 0.372, 0.386, 0.386, 0.397, 0.419,
+				];
+
+				function layerGeom(i) {
+					const img = art["ridge" + i];
+					const lh = h * LAYER_H[i];
+					const lw = img ? lh * (img.width / img.height) : h * 1.5;
+					const span = lw * 2;
+					return { img, lh, lw, span, x0: -((((travel * LAYER_SPEED[i]) % span) + span) % span) };
+				}
+
+				// Ground under a given screen x. Each layer is tiled against its own
+				// mirror, so the second half of every span reads backwards.
+				function crestY(x) {
+					const g = layerGeom(3);
+					if (!g.img) return h * 0.76;
+					const u = (((x - g.x0) % g.span) + g.span) % g.span;
+					const uu = u < g.lw ? u / g.lw : 1 - (u - g.lw) / g.lw;
+					const f = uu * (CREST.length - 1);
+					const i0 = Math.floor(f);
+					const i1 = Math.min(CREST.length - 1, i0 + 1);
+					return groundY() - g.lh + mix(CREST[i0], CREST[i1], f - i0) * g.lh;
+				}
+
+				const tigerX = () => mix(w * 0.04, w * 0.38, menace);
+				// It comes in a straight line rather than tracking the hills — a pair of
+				// eyes gliding level reads as something stalking, not something walking.
+				const tigerY = () => h * 0.78;
+				// The layers are solid below their ridgeline, so their base belongs at the
+				// very bottom of the frame. Anything less leaves a band of bare sky
+				// under the hills — invisible on a tall window, obvious on a wide one.
+				const groundY = () => h;
+				// Standing on a single sampled point perches her on whatever spike is
+				// under that pixel, with the ground falling away either side. She takes
+				// the lowest crest across her own width instead, and sinks a little into
+				// it, so the ridge drawn over her always covers her feet.
+				const MOTHER_X = 0.7;
+
+				function walkY() {
+					const mw = MOTHER_H * scale() * motherAspect();
+					let low = -Infinity;
+					for (let i = 0; i <= 4; i++) {
+						low = Math.max(low, crestY(w * MOTHER_X + (i / 4 - 0.5) * mw));
+					}
+					return low + h * 0.035;
+				}
+
+				function enter() {
+					menace = 0;
+					rice = RICE_START;
+					travel = 0;
+					surge = 0;
+					stride = 0;
+					taken = 0;
+					started = false;
+					cakes.length = 0;
+					sky.length = 0;
+					for (let i = 0; i < 150; i++) {
+						sky.push({
+							x: Math.random(),
+							y: Math.random() * 0.66,
+							r: 0.45 + Math.pow(Math.random(), 1.8) * 1.9,
+							tw: Math.random() * TAU,
+							rgb: starColour(Math.random()),
+						});
+					}
+					elTitle.style.opacity = "1";
+					elCap.style.opacity = "1";
+					elEnd.style.opacity = "0";
+					elAgain.style.opacity = "0";
+					elEn.textContent = CAP_GATE[0];
+					elKo.textContent = CAP_GATE[1];
+					// The hint has to stay legible while the tiger's line is still
+					// unsaid, so only the two spoken lines fade — not the whole block.
+					elCap.style.opacity = "1";
+					elEn.style.opacity = "0";
+					elKo.style.opacity = "0";
+					elHint.textContent = "화면을 누르면 시작합니다";
+					demanding = false;
+					flare = 0;
+					taught = false;
+				}
+
+				function give() {
+					if (taken) return;
+					// The first tap only starts the clock. Arriving mid-chase, before you
+					// have read what is on screen, is not a choice you made.
+					if (!started) {
+						started = true;
+						elTitle.style.opacity = "0";
+						elHint.textContent = "호랑이가 가까워지면 화면을 누르세요";
+						return;
+					}
+					if (rice <= 0) {
+						taken = 0.0001; // nothing left to give
+						hush();
+						return;
+					}
+					rice -= 1;
+					surge = 1;
+					const s = scale();
+					const mh = MOTHER_H * s;
+					const mw = mh * motherAspect();
+					const sx = w * MOTHER_X + mw * (MOTHER_RIM_X - 0.5);
+					const sy = walkY() - mh + mh * MOTHER_RIM_Y;
+					// Aimed at the tiger rather than thrown away, so the arc ends where
+					// the recoil begins and the two read as one thing.
+					const T = THROW_TIME;
+					cakes.push({
+						x: sx,
+						y: sy,
+						vx: (tigerX() - sx) / T,
+						vy: (tigerY() - sy - 0.5 * GRAVITY * T * T) / T,
+						rot: Math.random() * TAU,
+						vr: (Math.random() - 0.5) * 9,
+						r: 3.1 * s,
+					});
+				}
+
+				function hush() {
+					elEn.style.opacity = "0";
+					elKo.style.opacity = "0";
+					elHint.textContent = "";
+				}
+
+				function motherAspect() {
+					const m = art.mother;
+					return m ? m.width / m.height : 0.449;
+				}
+
+				function update(dt) {
+					stride += dt * 1.55;
+					travel += (WALK + surge * 230) * dt;
+					surge = Math.max(0, surge - dt * 1.7);
+
+					blinkT -= dt;
+					if (blinkT < -0.12) blinkT = 1.8 + Math.random() * 3.4;
+
+					flare = Math.max(0, flare - dt * 1.6);
+
+					if (!started) return;
+
+					if (!taken) {
+						menace = clamp01(menace + dt * MENACE_RATE);
+						// It closes in, then stops and asks. The asking is the cue.
+						const asking = menace >= DEMAND_AT;
+						if (asking !== demanding) {
+							demanding = asking;
+							elEn.style.opacity = asking ? "1" : "0";
+							elKo.style.opacity = asking ? "1" : "0";
+							if (asking) {
+								flare = 1;
+								if (!taught) elTitle.style.opacity = "0";
+							}
+						}
+						if (menace >= 1) {
+							taken = 0.0001;
+							hush();
+						}
+					} else {
+						taken += dt;
+						if (taken > 1.5 && !changing()) goTo(sceneRopes, 0.9);
+					}
+
+					for (let i = cakes.length - 1; i >= 0; i--) {
+						const c = cakes[i];
+						c.vy += GRAVITY * dt;
+						c.x += c.vx * dt;
+						c.y += c.vy * dt;
+						c.rot += c.vr * dt;
+						// Reaching the tiger is what buys the hill — not the tap that
+						// sent it. Given too early there is nothing to give back, and
+						// the cake is simply gone.
+						if (c.x <= tigerX()) {
+							menace = Math.max(0, menace - TAP_RELIEF);
+							flare = 0.6;
+							taught = true;
+							elHint.textContent = "";
+							cakes.splice(i, 1);
+							continue;
+						}
+						if (c.y > h + 30) cakes.splice(i, 1);
+					}
+				}
+
+				function drawSky() {
+					const g = ctx.createLinearGradient(0, 0, 0, h);
+					g.addColorStop(0, "rgb(16,19,43)");
+					g.addColorStop(0.55, "rgb(21,20,47)");
+					g.addColorStop(1, "rgb(31,23,49)");
+					ctx.fillStyle = g;
+					ctx.fillRect(0, 0, w, h);
+				}
+
+				function drawStars() {
+					for (const st of sky) {
+						const a = 0.3 + 0.5 * (0.6 + 0.4 * Math.sin(t * 1.6 + st.tw));
+						ctx.fillStyle = st.rgb + a.toFixed(3) + ")";
+						ctx.beginPath();
+						ctx.arc(((st.x * w - travel * 0.02) % w + w) % w, st.y * h, st.r, 0, TAU);
+						ctx.fill();
+					}
+				}
+
+				// Each layer is one drawing tiled with its own mirror, so the ridge
+				// never shows a seam however far she walks.
+				function drawRidge(i) {
+					const gy = groundY();
+					const { img, lh, lw, span, x0 } = layerGeom(i);
+					{
+						if (!img) {
+							ctx.fillStyle = ["#1e2542", "#18203a", "#121a2f", "#0c1222"][i];
+							ctx.beginPath();
+							ctx.moveTo(0, gy);
+							for (let x = 0; x <= w; x += 24) {
+								const u = (x + travel * LAYER_SPEED[i]) * 0.004;
+								ctx.lineTo(x, gy - lh * (0.42 + 0.2 * Math.sin(u + i) + 0.1 * Math.sin(u * 2.3)));
+							}
+							ctx.lineTo(w, gy);
+							ctx.closePath();
+							ctx.fill();
+							return;
+						}
+						for (let x = x0; x < w; x += span) {
+							ctx.drawImage(img, x, gy - lh, lw, lh);
+							ctx.save();
+							ctx.translate(x + span, gy - lh);
+							ctx.scale(-1, 1);
+							ctx.drawImage(img, 0, 0, lw, lh);
+							ctx.restore();
+						}
+					}
+				}
+
+				// Only ever two eyes. Closing the distance is the whole performance.
+				function drawTiger() {
+					const s = scale();
+					const shut = blinkT < 0 && !taken;
+					// It comes for her rather than swallowing the frame: the eyes stay
+					// eyes, rush to the middle, and the night closes around them.
+					const swell = taken ? clamp01(taken / 1.2) : 0;
+					const ease = swell * swell;
+					const ex = mix(tigerX(), w * 0.5, ease);
+					const ey = mix(tigerY(), h * 0.46, ease);
+					const gap = mix(mix(4.6, 9, menace) * s, Math.min(w, h) * 0.15, ease);
+					const r =
+						mix(mix(2.6, 5.2, menace) * (1 + flare * 0.55) * s, Math.min(w, h) * 0.085, ease) *
+						(shut ? 0.14 : 1);
+
+					for (const d of [-1, 1]) {
+						const x = ex + d * gap;
+						const glow = ctx.createRadialGradient(x, ey, 0, x, ey, r * 7);
+						glow.addColorStop(0, "rgba(242,193,78," + (0.32 + flare * 0.3).toFixed(3) + ")");
+						glow.addColorStop(1, "rgba(242,193,78,0)");
+						ctx.fillStyle = glow;
+						ctx.beginPath();
+						ctx.arc(x, ey, r * 7, 0, TAU);
+						ctx.fill();
+						ctx.fillStyle = "#f2c14e";
+						ctx.beginPath();
+						ctx.ellipse(x, ey, r, r * (shut ? 1 : 1.15), 0, 0, TAU);
+						ctx.fill();
+					}
+				}
+
+				function cake(x, y, r, rot) {
+					ctx.save();
+					ctx.translate(x, y);
+					ctx.rotate(rot);
+					ctx.fillStyle = "#efe3c4";
+					ctx.beginPath();
+					ctx.ellipse(0, 0, r, r * 0.62, 0, 0, TAU);
+					ctx.fill();
+					ctx.restore();
+				}
+
+				function drawMother() {
+					const s = scale();
+					const mh = MOTHER_H * s;
+					const mw = mh * motherAspect();
+					const x = w * MOTHER_X;
+					const bob = Math.abs(Math.sin(stride * Math.PI)) * 1.1 * s;
+					const top = walkY() - mh - bob;
+
+					if (art.mother) ctx.drawImage(art.mother, x - mw / 2, top, mw, mh);
+					else drawFigure(null, x, walkY() - mh * 0.46 - bob, s * 1.3, 0, 0, "grip");
+
+					// what is left to give, stacked on the rim
+					const rimX = x + mw * (MOTHER_RIM_X - 0.5);
+					const rimY = top + mh * MOTHER_RIM_Y;
+					const r = mw * MOTHER_RIM_W * 0.17;
+					for (let i = 0; i < rice; i++) {
+						const row = Math.floor(i / 2);
+						const col = i % 2 === 0 ? -0.5 : 0.5;
+						cake(rimX + col * r * 1.7 * (row % 2 ? -1 : 1), rimY - r * 0.5 - row * r * 0.9, r, 0);
+					}
+				}
+
+				function drawCakes() {
+					for (const c of cakes) cake(c.x, c.y, c.r, c.rot);
+				}
+
+				function draw() {
+					drawSky();
+					drawStars();
+					drawRidge(0);
+					drawRidge(1);
+					drawRidge(2);
+					drawMother();
+					drawCakes();
+					// The nearest crest passes in front of her, so she is walking the
+					// far side of the pass: legs hidden, head and basket on the sky.
+					drawRidge(3);
+					if (taken) {
+						ctx.fillStyle = "rgba(8,10,22," + (clamp01(taken / 1.2) * 0.82).toFixed(3) + ")";
+						ctx.fillRect(0, 0, w, h);
+					}
+					// The eyes sit in front of everything. They are the one thing that
+					// must never be lost behind a hill.
+					drawTiger();
+					drawGrain();
+					drawVignette();
+				}
+
+				return {
+					name: "gate",
+					enter,
+					update,
+					draw,
+					down: () => give(),
+					up: () => {},
+					key: (e) => {
+						if (e.key === " " || e.key === "Enter") {
+							e.preventDefault();
+							give();
+						}
+					},
+					keyUp: () => {},
+				};
+			})();
+
 			let scene = null;
 			let pending = null;
 			let veil = 0; // 0 clear, 1 blacked out
@@ -1198,7 +1594,7 @@
 
 			resize();
 			makeGrain();
-			goTo(sceneRopes);
+			goTo(sceneGate);
 			requestAnimationFrame(frame);
 		</script>
 	</body>
