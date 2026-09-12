@@ -277,6 +277,13 @@
 
 			// Bone-white to gold. Returns the "rgba(r,g,b," prefix; the twinkle
 			// supplies the alpha each frame. Every scene with a night sky wants it.
+			// Pointer or first touch, in CSS pixels. Every scene that takes input
+			// needs it.
+			function pos(e) {
+				const p = e.touches ? e.touches[0] : e;
+				return { x: p.clientX, y: p.clientY };
+			}
+
 			function starColour(warm) {
 				const c = mixArr([236, 226, 196], [247, 205, 130], warm * STAR_WARMTH);
 				return "rgba(" + Math.round(c[0]) + "," + Math.round(c[1]) + "," + Math.round(c[2]) + ",";
@@ -309,6 +316,8 @@
 			loadArt("mother", "assets/mother.webp");
 			loadArt("siblings", "assets/siblings.webp");
 			loadArt("branch", "assets/branch.webp");
+			loadArt("siblingsDoor", "assets/siblings-door.webp");
+			loadArt("paw", "assets/paw.webp");
 			for (let i = 0; i < 4; i++) loadArt("ridge" + i, "assets/ridge-" + i + ".webp");
 			for (let i = 0; i < 4; i++) loadArt("stalk" + i, "assets/stalk-" + i + ".webp");
 
@@ -668,11 +677,6 @@
 					flash = 0.3;
 					holding = false;
 					for (let i = 0; i < 26; i++) spawnFiber(ropeX(grab, climbY() - 26), climbY() - 26, true);
-				}
-
-				function pos(e) {
-					const p = e.touches ? e.touches[0] : e;
-					return { x: p.clientX, y: p.clientY };
 				}
 
 				function onDown(e) {
@@ -1472,7 +1476,7 @@
 						}
 					} else {
 						taken += dt;
-						if (taken > 1.5 && !changing()) goTo(sceneRopes, 0.9);
+						if (taken > 1.5 && !changing()) goTo(sceneDoor, 0.9);
 					}
 
 					for (let i = cakes.length - 1; i >= 0; i--) {
@@ -1652,6 +1656,232 @@
 				};
 			})();
 
+			// ── Scene 2 · the door ──────────────────────────────────────────────
+			// Their mother's voice is outside asking to be let in. Dragging parts the
+			// door, and what comes through the gap is not a hand. Widening it is the
+			// only thing the scene asks, and it lets go of itself when you do.
+			const sceneDoor = (() => {
+				const SEAM = 0.62; // where the door meets its frame
+				const GAP_MAX = 0.17; // widest the gap opens, as a fraction of width
+				const SPRING = 2.4; // how fast it eases back when released
+				const KEEP = 0.4; // how much of the widest hold stays put
+				const PAW_AT = 0.3; // slit past which something is in the gap
+				const PAW_WRIST = 0.402; // where the wrist sits across the paw art
+				const CAP_DOOR = [
+					"The voice outside was their mother's. The hand was not.",
+					"문틈으로 들어온 것은 손이 아니었다",
+				];
+
+				let slit = 0;
+				let rest = 0;
+				let dragging = false;
+				let dragX = 0;
+				let dragSlit = 0;
+				let keyOpen = false;
+				let lamp = 0;
+				let out = 0;
+				let started = false;
+
+				const seamX = () => w * SEAM;
+				// out keeps counting through the change-over, so everything that dims
+				// with it reads from a clamped value — a radius or an alpha that goes
+				// negative throws.
+				const fade = () => clamp01(out / 1.4);
+				const floorY = () => h * 0.88;
+
+				function enter() {
+					slit = rest = 0;
+					dragging = keyOpen = false;
+					lamp = 0;
+					out = 0;
+					started = false;
+					elTitle.style.opacity = "0";
+					elCap.style.opacity = "1";
+					elEn.style.opacity = "0";
+					elKo.style.opacity = "0";
+					elEnd.style.opacity = "0";
+					elAgain.style.opacity = "0";
+					elEn.textContent = CAP_DOOR[0];
+					elKo.textContent = CAP_DOOR[1];
+					elHint.textContent = "문을 옆으로 끌어 보세요";
+				}
+
+				function widen(to) {
+					if (out) return;
+					slit = clamp01(to);
+					rest = Math.max(rest, slit * KEEP);
+					if (!started && slit > 0.04) {
+						started = true;
+						elHint.textContent = "";
+					}
+					if (slit > PAW_AT) {
+						elEn.style.opacity = "1";
+						elKo.style.opacity = "1";
+					}
+					if (slit >= 1 && !out) out = 0.0001;
+				}
+
+				function update(dt) {
+					lamp += dt;
+					if (!dragging && !keyOpen && slit > rest) {
+						slit = Math.max(rest, slit - dt * SPRING * (slit - rest + 0.25));
+					}
+					if (keyOpen) widen(slit + dt * 0.55);
+					if (out) {
+						out += dt;
+						if (out > 1.6 && !changing()) goTo(sceneRopes, 0.9);
+					}
+				}
+
+				// Paper lit from the far side, and the lattice that holds it.
+				function drawDoor() {
+					const gap = slit * w * GAP_MAX;
+					const x = seamX() + gap;
+					const moon = 1 - fade() * 0.5;
+					ctx.fillStyle = "rgb(20,22,40)";
+					ctx.fillRect(x, 0, w - x, h);
+					const g = ctx.createLinearGradient(x, 0, w, 0);
+					g.addColorStop(0, "rgba(126,150,205," + (0.2 * moon).toFixed(3) + ")");
+					g.addColorStop(1, "rgba(126,150,205,0.04)");
+					ctx.fillStyle = g;
+					ctx.fillRect(x, 0, w - x, h);
+
+					ctx.strokeStyle = "rgba(10,10,20,0.85)";
+					ctx.lineWidth = Math.max(1.4, scale() * 1.1);
+					ctx.beginPath();
+					const step = Math.max(34, h * 0.075);
+					for (let gx = x + step * 0.6; gx < w; gx += step) {
+						ctx.moveTo(gx, 0);
+						ctx.lineTo(gx, h);
+					}
+					for (let gy = step * 0.6; gy < h; gy += step) {
+						ctx.moveTo(x, gy);
+						ctx.lineTo(w, gy);
+					}
+					ctx.stroke();
+
+					ctx.fillStyle = "rgba(8,9,18,0.9)";
+					ctx.fillRect(x - Math.max(3, scale() * 2), 0, Math.max(3, scale() * 2), h);
+				}
+
+				// Only what fits through the gap is ever seen.
+				function drawGap() {
+					const gap = slit * w * GAP_MAX;
+					if (gap < 1) return;
+					const sx = seamX();
+					ctx.save();
+					ctx.beginPath();
+					ctx.rect(sx, 0, gap, h);
+					ctx.clip();
+
+					const moon = ctx.createLinearGradient(sx, 0, sx + gap, 0);
+					moon.addColorStop(0, "rgba(150,175,225,0.1)");
+					moon.addColorStop(0.5, "rgba(170,195,240,0.26)");
+					moon.addColorStop(1, "rgba(150,175,225,0.1)");
+					ctx.fillStyle = moon;
+					ctx.fillRect(sx, 0, gap, h);
+
+					const k = clamp01((slit - PAW_AT) / (1 - PAW_AT));
+					if (k > 0) {
+						const img = art.paw;
+						const py = floorY() - h * 0.13;
+						const ph = h * 0.3;
+						if (img) {
+							const pw = ph * (img.width / img.height);
+							// The claws sit just inside the gap and the leg runs back out of
+							// it, so widening reveals more limb rather than sliding the foot
+							// across. Mirrored, because it reaches in rather than out.
+							const toes = sx + w * 0.02;
+							ctx.save();
+							ctx.translate(toes + pw, py);
+							ctx.scale(-1, 1);
+							ctx.drawImage(img, 0, -PAW_WRIST * ph, pw, ph);
+							ctx.restore();
+						} else {
+							ctx.fillStyle = "#08090f";
+							ctx.fillRect(sx + gap - w * 0.2, py - ph * 0.2, w * 0.2, ph * 0.4);
+						}
+					}
+					ctx.restore();
+				}
+
+				function drawRoom() {
+					ctx.fillStyle = "rgb(13,12,22)";
+					ctx.fillRect(0, 0, seamX(), h);
+					const flick = 0.86 + 0.14 * Math.sin(lamp * 7.3) * Math.sin(lamp * 3.1);
+					const lx = w * 0.18;
+					const ly = floorY() - h * 0.22;
+					const rad = h * 0.42 * (1 - fade() * 0.55);
+					const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, rad);
+					g.addColorStop(0, "rgba(255,196,110," + (0.3 * flick).toFixed(3) + ")");
+					g.addColorStop(0.4, "rgba(230,150,80," + (0.1 * flick).toFixed(3) + ")");
+					g.addColorStop(1, "rgba(230,150,80,0)");
+					ctx.fillStyle = g;
+					ctx.fillRect(0, 0, seamX(), h);
+					ctx.fillStyle = "#f2c14e";
+					ctx.globalAlpha = flick * (1 - fade() * 0.9);
+					ctx.beginPath();
+					ctx.ellipse(lx, ly, 2.2 * scale(), 3.4 * scale(), 0, 0, TAU);
+					ctx.fill();
+					ctx.globalAlpha = 1;
+				}
+
+				function drawKids() {
+					const img = art.siblingsDoor;
+					const kh = h * 0.52;
+					if (img) {
+						const kw = kh * (img.width / img.height);
+						// her hand is at the very right of the art, so it lands on the seam
+						ctx.drawImage(img, seamX() - kw, floorY() - kh, kw, kh);
+						return;
+					}
+					drawFigure(null, seamX() - kh * 0.22, floorY() - kh * 0.45, scale() * 1.5, 0, 0, "grip");
+					drawFigure(null, seamX() - kh * 0.45, floorY() - kh * 0.4, scale() * 1.25, 0, 0, "grip");
+				}
+
+				function draw() {
+					drawRoom();
+					drawDoor();
+					drawGap();
+					drawKids();
+					drawGrain();
+					drawVignette();
+					if (out) {
+						ctx.fillStyle = "rgba(8,10,22," + fade().toFixed(3) + ")";
+						ctx.fillRect(0, 0, w, h);
+					}
+				}
+
+				return {
+					name: "door",
+					enter,
+					update,
+					draw,
+					down: (e) => {
+						e.preventDefault();
+						dragging = true;
+						dragX = pos(e).x;
+						dragSlit = slit;
+					},
+					move: (e) => {
+						if (!dragging) return;
+						widen(dragSlit + (pos(e).x - dragX) / (w * GAP_MAX));
+					},
+					up: () => {
+						dragging = false;
+					},
+					key: (e) => {
+						if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") {
+							e.preventDefault();
+							keyOpen = true;
+						}
+					},
+					keyUp: (e) => {
+						if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") keyOpen = false;
+					},
+				};
+			})();
+
 			let scene = null;
 			let pending = null;
 			let veil = 0; // 0 clear, 1 blacked out
@@ -1701,6 +1931,9 @@
 
 			window.addEventListener("resize", resize);
 			cv.addEventListener("pointerdown", (e) => changing() || scene.down(e));
+			window.addEventListener("pointermove", (e) => {
+				if (!changing() && scene.move) scene.move(e);
+			});
 			window.addEventListener("pointerup", () => scene.up());
 			window.addEventListener("pointercancel", () => scene.up());
 			window.addEventListener("keydown", (e) => changing() || scene.key(e));
