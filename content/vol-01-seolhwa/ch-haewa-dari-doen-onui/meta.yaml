@@ -9,3 +9,5 @@ description: |
 thumbnail: thumb.webp
 shareImage: share.jpg
 favicon: favicon.png
+links:
+  github: https://github.com/song-chaeyoung
