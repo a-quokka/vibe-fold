@@ -37,6 +37,7 @@
 				--gold-dim: #ddcda4;
 				--gold-faint: #b5a480;
 				--night: #10132b;
+				--night-deep: #080a16;
 
 				/* Scale — the title carries the piece, the hint recedes. */
 				--text-title: clamp(2.5rem, 7vw, 5rem);
@@ -166,6 +167,16 @@
 				transition: opacity var(--dur-slow) var(--ease);
 			}
 
+			/* The blackout has to cover the text as well as the canvas, so it is a
+			   layer of its own, last in the document. */
+			.veil {
+				position: fixed;
+				inset: 0;
+				background: var(--night-deep);
+				opacity: 0;
+				pointer-events: none;
+			}
+
 			@media (prefers-reduced-motion: reduce) {
 				.caption,
 				.title,
@@ -192,6 +203,8 @@
 			<p class="ko" id="ko">해와 달이 된 오누이</p>
 			<p class="hint" id="hint">줄을 붙잡고 있으면 올라갑니다</p>
 		</div>
+		<div class="veil" id="veil"></div>
+
 		<script>
 			const cv = document.getElementById("c");
 			const ctx = cv.getContext("2d");
@@ -204,6 +217,7 @@
 			const elEndKo = document.getElementById("endko");
 			const elEndEn = document.getElementById("enden");
 			const elAgain = document.getElementById("endagain");
+			const elVeil = document.getElementById("veil");
 
 			const TAU = Math.PI * 2;
 			// How far the stars drift from bone-white toward gold. 0 = the old look.
@@ -215,43 +229,11 @@
 			// loses one of its parallax layers.
 			const MIST_STRENGTH = 0;
 			// How far the world scrolls for one full climb, and how long holding on takes.
-			const SCROLL = 3600;
-			const RATE = 1 / 6; // seconds of holding for a full climb
-			const BEATS = 1.7; // hand-over-hand grips per second
-			const PULSE_MEAN = 0.788; // keeps the grip rhythm from slowing the average climb
-			const CAP = {
-				climb: ["Two ropes come down. Only one of them holds.", "해와 달이 된 오누이"],
-				sunmoon: ["The children became the sun and the moon.", "오누이는 해와 달이 되었다"],
-				fall: ["The rope gave way, and the field closed over.", "수수밭이 술렁였다"],
-			};
-
 			let w = 0;
 			let h = 0;
 			let dpr = 1;
 			let t = 0;
 			let last = performance.now();
-
-			let phase = "title"; // title → climb → rise | fall → end
-			let ending = null;
-			let climb = 0;
-			let grab = -1;
-			let holding = false;
-			let beat = 0;
-			let lastBeat = 0;
-			let mount = 0; // 0 on the ground, 1 hanging on a rope
-			let swing = 0;
-			let riseT = 0;
-			let endT = 0;
-			let fallV = 0;
-			let fallFrom = 1;
-			let flash = 0;
-			let impact = null;
-
-			const ropes = [];
-			const fibers = [];
-			const stars = [];
-			const stalks = [];
-			const mists = [];
 
 			function clamp01(v) {
 				return v < 0 ? 0 : v > 1 ? 1 : v;
@@ -286,528 +268,65 @@
 				ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 			}
 
-			function seed() {
-				stars.length = 0;
-				for (let i = 0; i < 220; i++) {
-					stars.push({
-						x: Math.random(),
-						c: Math.random() * 1.6,
-						p: 0.35 + Math.random() * 0.75,
-						r: 0.45 + Math.pow(Math.random(), 1.8) * 2,
-						tw: Math.random() * TAU,
-						rgb: starColour(Math.random()),
-					});
-				}
-				mists.length = 0;
-				for (let i = 0; i < 10; i++) {
-					mists.push({
-						x: Math.random(),
-						c: Math.random() * 1.6,
-						p: 0.5 + Math.random() * 0.5,
-						sw: 0.45 + Math.random() * 0.5,
-						sh: 0.09 + Math.random() * 0.09,
-						o: (0.022 + Math.random() * 0.03) * MIST_STRENGTH,
-					});
-				}
-				stalks.length = 0;
-				for (let i = 0; i < 120; i++) {
-					stalks.push({
-						x: Math.random(),
-						hgt: 0.05 + Math.random() * 0.09,
-						lean: (Math.random() - 0.5) * 0.55,
-						head: 2 + Math.random() * 2.4,
-						kind: Math.floor(Math.random() * 4),
-						bow: 0,
-						hit: false,
-					});
-				}
-			}
-
-			function setCaption(key) {
-				elEn.textContent = CAP[key][0];
-				elKo.textContent = CAP[key][1];
-			}
-
-			function showEnd(key) {
-				elEndKo.textContent = CAP[key][1];
-				elEndEn.textContent = CAP[key][0];
-				elCap.style.opacity = "0";
-				elEnd.style.opacity = "1";
-			}
-
-			function reset() {
-				phase = "title";
-				ending = null;
-				climb = 0;
-				grab = -1;
-				holding = false;
-				beat = 0;
-				lastBeat = 0;
-				mount = 0;
-				swing = 0;
-				riseT = 0;
-				endT = 0;
-				fallV = 0;
-				flash = 0;
-				impact = null;
-				fibers.length = 0;
-				ropes.length = 0;
-				const bad = Math.random() < 0.5 ? 0 : 1;
-				for (let i = 0; i < 2; i++) {
-					ropes.push({
-						rotten: i === bad,
-						breakAt: 0.45 + Math.random() * 0.4,
-						seed: Math.random() * 1000,
-						strain: 0,
-						stretch: 0,
-						snapped: false,
-						snapAt: 0,
-					});
-				}
-				for (const s of stalks) {
-					s.bow = 0;
-					s.hit = false;
-				}
-				elTitle.style.opacity = "1";
-				elCap.style.opacity = "1";
-				elEnd.style.opacity = "0";
-				elAgain.style.opacity = "0";
-				elHint.textContent = "줄을 붙잡고 있으면 올라갑니다";
-				setCaption("climb");
-			}
-
 			const scale = () => Math.max(1, Math.min(w, h) / 300);
-			const climbY = () => h * 0.58;
-			const fieldTop = () => h * 0.8 + climb * SCROLL * 0.3;
-			const lightY = () => h * 0.3 + (climb - 1) * SCROLL * 0.6;
-			const ropeBaseX = (i) => w * 0.5 + (i ? 1 : -1) * Math.min(w * 0.15, 86);
 
-			function ropeX(i, y) {
-				const r = ropes[i];
-				const amp = grab === i && holding ? 3 : 9;
-				const scroll = y + climb * SCROLL + r.seed;
-				return (
-					ropeBaseX(i) +
-					Math.sin(scroll * 0.0055 + t * 0.7) * amp +
-					Math.sin(scroll * 0.017) * 2 +
-					(grab === i ? swing : 0)
-				);
+			// Optional painted assets. Each one is drawn if it loads and silently
+			// ignored if it does not, so the piece never depends on a file landing.
+			// Local paths only — the chapter must not reach the network.
+			const art = {};
+
+			function loadArt(name, src) {
+				const img = new Image();
+				img.onload = () => {
+					art[name] = img;
+				};
+				img.src = src;
 			}
 
-			// Rot only shows on a rope you have actually pulled on.
-			function decayOf(r) {
-				if (!r.rotten) return 0;
-				return clamp01((r.strain - 0.22) / Math.max(0.05, r.breakAt - 0.22));
-			}
+			// Both climber poses share one canvas: same silhouette mass, fists on the
+			// same spot, so swapping them never makes the child jump. Measured off the
+			// artwork, not guessed.
+			const CLIMBER_GRIP = 0.7188; // fists, as a fraction of asset width
+			const CLIMBER_ASSET_H = 1.0527; // asset height / the body height it stands in for
 
-			function nearestRope(px, py) {
-				let best = -1;
-				let bestD = Math.max(58, w * 0.17);
-				for (let i = 0; i < 2; i++) {
-					const d = Math.abs(ropeX(i, py) - px);
-					if (d < bestD) {
-						bestD = d;
-						best = i;
-					}
-				}
-				return best;
-			}
+			loadArt("sun", "assets/sun.webp");
+			loadArt("moon", "assets/moon.webp");
+			loadArt("climberUp", "assets/climber-up.webp");
+			loadArt("climberHang", "assets/climber-hang.webp");
+			loadArt("climberFall", "assets/climber-fall.webp");
+			for (let i = 0; i < 4; i++) loadArt("stalk" + i, "assets/stalk-" + i + ".webp");
 
-			function chooseRope(i) {
-				if (i < 0) return;
-				if (phase === "title") {
-					phase = "climb";
-					elTitle.style.opacity = "0";
-					elHint.textContent = "";
-				}
-				if (phase !== "climb") return;
-				if (grab !== -1 && grab !== i) {
-					climb = Math.max(0, climb - 0.035);
-					swing = i ? -16 : 16;
-				}
-				grab = i;
-			}
+			// The falling pose is centred on its own mass, not on the fists — it spins
+			// about local (0,0) and holding nothing.
+			const CLIMBER_FALL_H = 0.8711;
 
-			function spawnFiber(x, y, burst) {
-				fibers.push({
-					x: x + (Math.random() - 0.5) * 9,
-					y: y + (Math.random() - 0.5) * 26,
-					vx: (Math.random() - 0.5) * (burst ? 150 : 26),
-					vy: (burst ? -60 : 10) + Math.random() * 40,
-					rot: Math.random() * TAU,
-					vr: (Math.random() - 0.5) * 6,
-					len: 3 + Math.random() * (burst ? 9 : 5),
-					life: 1,
-				});
-			}
-
-			function climbStep(dt) {
-				if (grab < 0 || phase !== "climb") return;
-				const r = ropes[grab];
-				const decay = decayOf(r);
-				// A rotten rope gives under the weight: every grip wins a little less.
-				const gain = r.rotten ? 0.88 - 0.22 * decay : 1;
-				beat += dt * BEATS;
-				const pulse = (0.5 + 0.85 * Math.pow(Math.max(0, Math.sin(beat * TAU)), 0.7)) / PULSE_MEAN;
-				climb += RATE * gain * pulse * dt;
-				r.strain = Math.max(r.strain, climb);
-				if (Math.floor(beat) !== lastBeat) {
-					lastBeat = Math.floor(beat);
-					r.stretch = Math.min(1, r.stretch + (r.rotten ? 0.95 : 0.55));
-					const n = decay > 0.05 ? 1 + Math.floor(decay * 3) : 0;
-					for (let i = 0; i < n; i++) spawnFiber(ropeX(grab, climbY() - 40), climbY() - 40, false);
-				}
-				if (r.rotten && climb >= r.breakAt) return snap();
-				if (climb >= 1) {
-					climb = 1;
-					phase = "rise";
-					riseT = 0;
-					holding = false;
-				}
-			}
-
-			function snap() {
-				const r = ropes[grab];
-				r.snapped = true;
-				r.snapAt = climb;
-				phase = "fall";
-				fallFrom = climb;
-				fallV = 0.04;
-				flash = 0.3;
-				holding = false;
-				for (let i = 0; i < 26; i++) spawnFiber(ropeX(grab, climbY() - 26), climbY() - 26, true);
-			}
-
-			function pos(e) {
-				const p = e.touches ? e.touches[0] : e;
-				return { x: p.clientX, y: p.clientY };
-			}
-
-			function onDown(e) {
-				e.preventDefault();
-				if (phase === "end") {
-					if (endT > 1) reset();
-					return;
-				}
-				if (phase !== "title" && phase !== "climb") return;
-				const p = pos(e);
-				const i = nearestRope(p.x, p.y);
-				if (i < 0) return;
-				chooseRope(i);
-				holding = true;
-			}
-
-			function onUp() {
-				holding = false;
-			}
-
-			function onKey(e) {
-				if (phase === "end") {
-					if (endT > 1) reset();
-					return;
-				}
-				if (e.key === "ArrowLeft") chooseRope(0);
-				else if (e.key === "ArrowRight") chooseRope(1);
-				else if (e.key === "ArrowDown" || e.key === " " || e.key === "Enter") {
-					if (grab < 0) chooseRope(0);
-					holding = true;
-				} else return;
-				e.preventDefault();
-			}
-
-			function onKeyUp(e) {
-				if (e.key === "ArrowDown" || e.key === " " || e.key === "Enter") holding = false;
-			}
-
-			// Daybreak arrives from the top, where the two lights are; night lingers below.
-			function dawnAmount() {
-				return phase === "rise" || ending === "sunmoon" ? clamp01((riseT - 0.5) / 1.6) : 0;
-			}
-
-			function drawSky() {
-				const lift = clamp01((climb - 0.55) / 0.45);
-				const dawn = dawnAmount();
-				const top = mixArr(mixArr([16, 19, 43], [58, 42, 98], lift * 0.55), [214, 142, 96], dawn);
-				const midY = mixArr([19, 18, 45], [104, 72, 116], dawn);
-				const bottom = mixArr([23, 18, 46], [28, 22, 58], dawn);
-				const g = ctx.createLinearGradient(0, 0, 0, h);
-				g.addColorStop(0, rgb(top, top, 0));
-				g.addColorStop(0.45, rgb(midY, midY, 0));
-				g.addColorStop(1, rgb(bottom, bottom, 0));
-				ctx.fillStyle = g;
-				ctx.fillRect(0, 0, w, h);
-			}
-
-			// Bone-white to gold. Returns the "rgba(r,g,b," prefix; the twinkle supplies
-			// the alpha each frame.
-			function starColour(warm) {
-				const c = mixArr([236, 226, 196], [247, 205, 130], warm * STAR_WARMTH);
-				return "rgba(" + Math.round(c[0]) + "," + Math.round(c[1]) + "," + Math.round(c[2]) + ",";
-			}
-
-			function drawStars() {
-				for (const s of stars) {
-					let y = h * 0.5 + (climb - s.c) * SCROLL * s.p;
-					if (y > h + 30) {
-						s.c += 1.6;
-						y = h * 0.5 + (climb - s.c) * SCROLL * s.p;
-					} else if (y < -30) {
-						s.c -= 1.6;
-						y = h * 0.5 + (climb - s.c) * SCROLL * s.p;
-					}
-					if (y < -10 || y > h + 10) continue;
-					const a = (0.3 + 0.65 * s.p) * (0.6 + 0.4 * Math.sin(t * 1.6 + s.tw));
-					ctx.fillStyle = s.rgb + a.toFixed(3) + ")";
-					ctx.beginPath();
-					ctx.arc(s.x * w, y, s.r * s.p, 0, TAU);
-					ctx.fill();
-				}
-			}
-
-			function drawMist() {
-				for (const m of mists) {
-					let y = h * 0.5 + (climb - m.c) * SCROLL * m.p;
-					if (y > h + 400) {
-						m.c += 1.6;
-						y = h * 0.5 + (climb - m.c) * SCROLL * m.p;
-					} else if (y < -400) {
-						m.c -= 1.6;
-						y = h * 0.5 + (climb - m.c) * SCROLL * m.p;
-					}
-					const rx = w * m.sw;
-					const ry = h * m.sh;
-					if (y < -ry * 3 || y > h + ry * 3) continue;
-					ctx.save();
-					ctx.translate(m.x * w, y);
-					ctx.scale(1, ry / rx);
-					const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-					g.addColorStop(0, "rgba(104,100,150," + m.o.toFixed(3) + ")");
-					g.addColorStop(1, "rgba(104,100,150,0)");
-					ctx.fillStyle = g;
-					ctx.beginPath();
-					ctx.arc(0, 0, rx, 0, TAU);
-					ctx.fill();
-					ctx.restore();
-				}
-			}
-
-			// The ground keeps glowing under you for a while after it drops away.
-			function drawHorizon() {
-				const k = 1 - clamp01(climb / 0.4);
-				if (k <= 0) return;
-				const g = ctx.createRadialGradient(w * 0.5, h * 1.02, 0, w * 0.5, h * 1.02, h * 0.62);
-				g.addColorStop(0, "rgba(206,140,92," + (0.26 * k).toFixed(3) + ")");
-				g.addColorStop(1, "rgba(206,140,92,0)");
-				ctx.fillStyle = g;
-				ctx.fillRect(0, 0, w, h);
-			}
-
-			function drawLight() {
-				const y = lightY();
-				const rad = Math.max(w, h) * 0.95;
-				if (y < -rad || y > h + rad) return;
-				const g = ctx.createRadialGradient(w * 0.5, y, 0, w * 0.5, y, rad);
-				g.addColorStop(0, "rgba(255,233,176,0.92)");
-				g.addColorStop(0.14, "rgba(255,214,138,0.42)");
-				g.addColorStop(0.45, "rgba(255,201,120,0.12)");
-				g.addColorStop(1, "rgba(255,201,120,0)");
-				ctx.fillStyle = g;
-				ctx.fillRect(0, 0, w, h);
-			}
-
-			function drawField() {
-				const top = fieldTop();
-				if (top > h + 4) return;
-				const s = scale();
-
-				ctx.fillStyle = "#1b1524";
-				ctx.fillRect(0, top, w, h - top + 2);
-
-				for (const st of stalks) {
-					const x = st.x * w;
-					const hh = st.hgt * h * (1 - st.bow * 0.45);
-					const sway = Math.sin(t * 0.9 + st.x * 12) * 3;
-					// the wave from the landing shoves each stalk away, then it rights itself
-					const push = impact ? Math.sign(x - impact.x) * st.bow * 26 : 0;
-					const tipX = x + st.lean * 22 + sway + push;
-
-					const blade = art["stalk" + st.kind];
-					if (blade) {
-						// A drawing cannot bend, so the stalk leans from its root by the angle
-						// the tip would have reached. Sway, lean and the landing shove all
-						// still come through, because they only feed this one rotation.
-						ctx.save();
-						ctx.translate(x, top + 6);
-						ctx.rotate(Math.atan2(tipX - x, hh));
-						const bw = hh * (blade.width / blade.height);
-						ctx.drawImage(blade, -bw / 2, -hh, bw, hh);
-						ctx.restore();
-						continue;
-					}
-
-					ctx.strokeStyle = "#2a1f2e";
-					ctx.lineWidth = 1.6 * s;
-					ctx.beginPath();
-					ctx.moveTo(x, top + 6);
-					ctx.quadraticCurveTo(x + st.lean * 14 + sway + push * 0.45, top - hh * 0.5, tipX, top - hh);
-					ctx.stroke();
-					ctx.fillStyle = "#302234";
-					ctx.beginPath();
-					ctx.ellipse(tipX, top - hh, st.head * 0.7 * s, st.head * 1.5 * s, st.lean * 0.4 + st.bow * 0.5, 0, TAU);
-					ctx.fill();
-				}
-			}
-
-			// A rope is a cylinder, not a line: rim, body, shaded side and lit side are
-			// four strokes over one centreline, and the twist is drawn as grooves that
-			// bow the way they would wrap around it.
-			function strokeAlong(pts, dx) {
-				ctx.beginPath();
-				ctx.moveTo(pts[0] + dx, pts[1]);
-				for (let k = 2; k < pts.length; k += 2) ctx.lineTo(pts[k] + dx, pts[k + 1]);
-				ctx.stroke();
-			}
-
-			function drawRope(i) {
-				const r = ropes[i];
-				const s = scale();
-				const decay = decayOf(r);
-				const fade = phase === "rise" ? 1 - clamp01(riseT / 1.1) : 1;
-				if (fade <= 0) return;
-
-				let bottom = Math.min(h + 20, fieldTop() - 12);
-				if (r.snapped) bottom = Math.min(bottom, climbY() + (climb - r.snapAt) * SCROLL);
-				if (bottom < -20) return;
-
-				// One pass over the centreline; every layer below reuses these points.
-				const pts = [];
-				for (let y = -24; y <= bottom; y += 6) pts.push(ropeX(i, y), y);
-				pts.push(ropeX(i, bottom), bottom);
-
-				const unit = s * 0.62;
-				const W = (7 - decay * 1.8) * unit;
-				const hw = W * 0.5;
-				const body = decay ? rgb([216, 192, 138], [132, 110, 74], decay) : "rgb(216,192,138)";
-				const lit = decay ? rgb([245, 227, 178], [168, 144, 100], decay) : "rgb(245,227,178)";
-				const shade = decay ? rgb([138, 112, 66], [86, 70, 44], decay) : "rgb(138,112,66)";
-
-				ctx.globalAlpha = fade;
-				ctx.lineCap = "round";
-				ctx.lineJoin = "round";
-
-				// rim — separates the rope from the sky behind it
-				ctx.strokeStyle = "rgba(32,24,14,0.5)";
-				ctx.lineWidth = W * 1.2;
-				strokeAlong(pts, 0);
-
-				ctx.strokeStyle = body;
-				ctx.lineWidth = W;
-				strokeAlong(pts, 0);
-
-				// the light in this scene comes from above and slightly left
-				ctx.globalAlpha = fade * 0.5;
-				ctx.strokeStyle = shade;
-				ctx.lineWidth = W * 0.4;
-				strokeAlong(pts, hw * 0.58);
-
-				ctx.globalAlpha = fade * 0.55;
-				ctx.strokeStyle = lit;
-				ctx.lineWidth = W * 0.28;
-				strokeAlong(pts, -hw * 0.6);
-				ctx.globalAlpha = fade;
-
-				// twist — grooves between the three strands, scrolling with the climb
-				const step = W * 1.25;
-				const off = ((climb * SCROLL) % step) - step;
-				ctx.lineWidth = Math.max(0.8, W * 0.13);
-				for (let pass = 0; pass < 2; pass++) {
-					// pass 0 is the groove itself, pass 1 the lit edge of the strand above it
-					ctx.strokeStyle = pass ? lit : "rgba(58,42,26,0.55)";
-					ctx.globalAlpha = fade * (pass ? 0.34 : 0.85 - decay * 0.3);
-					const shift = pass ? -W * 0.16 : 0;
-					ctx.beginPath();
-					for (let y = off - 24; y <= bottom; y += step) {
-						if (y < -30) continue;
-						const x = ropeX(i, y) + shift;
-						ctx.moveTo(x - hw * 0.92, y + hw * 0.66);
-						ctx.quadraticCurveTo(x, y + hw * 0.08, x + hw * 0.92, y - hw * 0.66);
-					}
-					ctx.stroke();
-				}
-				ctx.globalAlpha = fade;
-
-				// rot pushes single fibres out of the lay
-				if (decay > 0.25) {
-					ctx.strokeStyle = "rgba(150,126,84," + (decay * 0.8).toFixed(2) + ")";
-					ctx.lineWidth = Math.max(0.7, W * 0.1);
-					ctx.beginPath();
-					const hair = step * 2.4;
-					const hoff = ((climb * SCROLL * 0.5 + r.seed) % hair) - hair;
-					for (let y = hoff - 24, n = 0; y <= bottom; y += hair, n++) {
-						if (y < -30) continue;
-						const x = ropeX(i, y);
-						const dir = n % 2 ? 1 : -1;
-						ctx.moveTo(x + dir * hw * 0.6, y);
-						ctx.quadraticCurveTo(
-							x + dir * hw * 1.9,
-							y - hw * 0.5,
-							x + dir * hw * (2 + decay * 1.6),
-							y + hw * 0.7,
-						);
-					}
-					ctx.stroke();
-				}
-
-				// frayed end
-				if (bottom < h + 18) {
-					const x = ropeX(i, bottom);
-					ctx.strokeStyle = body;
-					ctx.lineWidth = Math.max(0.8, W * 0.16);
-					ctx.beginPath();
-					for (let k = -3; k <= 3; k++) {
-						const spread = k * hw * 0.5;
-						ctx.moveTo(x + spread * 0.25, bottom - hw * 0.5);
-						ctx.quadraticCurveTo(
-							x + spread * 0.8,
-							bottom + hw * 0.9,
-							x + spread,
-							bottom + hw * (1.8 + Math.abs(k) * 0.5),
-						);
-					}
-					ctx.stroke();
-				}
-				ctx.globalAlpha = 1;
-			}
-
-			// x is the rope itself; the body hangs beside it so the silhouette stays readable.
-			function figure(x, y, s, rot, side) {
+			// Draws the child. `img` is the painted pose, or null to fall back to the
+			// figure this piece was built from. "grip" lands the fists on local x = 0
+			// at the height a rope would be, mirrored when the body hangs off the
+			// other side; "mass" centres the drawing on (x, y) so it spins about
+			// itself. Shared, because every scene that shows a person needs it.
+			function drawFigure(img, x, y, s, rot, side, anchor) {
 				const dx = side * 5.6 * s;
 				ctx.save();
 				ctx.translate(x, y);
 				ctx.rotate(rot);
 
-				// Painted climber if it loaded. The artwork has the body to the left of
-				// the grip, so it is mirrored when hanging off the other side; either
-				// way the fists land on local x = 0, which is the rope.
-				if (phase === "fall" && art.climberFall) {
-					const fa = art.climberFall;
+				if (img && anchor === "mass") {
 					const fh = 30 * s * CLIMBER_FALL_H;
-					const fw = fh * (fa.width / fa.height);
-					ctx.drawImage(fa, -fw / 2, -fh / 2, fw, fh);
+					const fw = fh * (img.width / img.height);
+					ctx.drawImage(img, -fw / 2, -fh / 2, fw, fh);
 					ctx.restore();
 					return;
 				}
 
-				const art0 = climberPose();
-				if (art0) {
+				if (img) {
 					const fh = 30 * s * CLIMBER_ASSET_H;
-					const fw = fh * (art0.width / art0.height);
+					const fw = fh * (img.width / img.height);
 					if (side > 0) ctx.scale(-1, 1);
-					ctx.drawImage(art0, -CLIMBER_GRIP * fw, -16 * s, fw, fh);
+					ctx.drawImage(img, -CLIMBER_GRIP * fw, -16 * s, fw, fh);
 					ctx.restore();
 					return;
 				}
-
 				ctx.fillStyle = "#080a16";
 				ctx.strokeStyle = "#080a16";
 				ctx.lineCap = "round";
@@ -846,111 +365,6 @@
 				ctx.restore();
 			}
 
-			function drawClimber() {
-				if (phase === "end") return; // the field has closed over, or the sky has taken them
-				const s = scale();
-				if (phase === "rise") {
-					const k = clamp01(riseT / 1);
-					const y = mix(climbY(), lightY(), k * k);
-					if (riseT < 1.05) figure(ropeX(grab < 0 ? 0 : grab, y), y, s * (1 - k * 0.35), 0, 0);
-					return;
-				}
-				const groundY = fieldTop() - 14 * s;
-				const onRope = grab >= 0;
-				const ry = climbY() + (onRope ? ropes[grab].stretch * 7 * s : 0);
-				const x = onRope ? ropeX(grab, ry) : w * 0.5;
-				// falling, the climber also drops out of the camera and into the field
-				const y =
-					phase === "fall"
-						? mix(climbY(), fieldTop() - 12 * s, 1 - clamp01(climb / Math.max(0.001, fallFrom)))
-						: mix(groundY, ry, mount);
-				const rot = phase === "fall" ? Math.sin(t * 7) * 0.5 + fallV * 1.2 : 0;
-				const side = phase === "fall" || !onRope ? 0 : grab === 0 ? 1 : -1;
-				figure(x, y, s, rot, side);
-			}
-
-			// Optional painted assets. Each one is drawn if it loads and silently
-			// ignored if it does not, so the piece never depends on a file landing.
-			// Local paths only — the chapter must not reach the network.
-			const art = {};
-
-			function loadArt(name, src) {
-				const img = new Image();
-				img.onload = () => {
-					art[name] = img;
-				};
-				img.src = src;
-			}
-
-			// Both climber poses share one canvas: same silhouette mass, fists on the
-			// same spot, so swapping them never makes the child jump. Measured off the
-			// artwork, not guessed.
-			const CLIMBER_GRIP = 0.7188; // fists, as a fraction of asset width
-			const CLIMBER_ASSET_H = 1.0527; // asset height / the body height it stands in for
-
-			loadArt("sun", "assets/sun.webp");
-			loadArt("moon", "assets/moon.webp");
-			loadArt("climberUp", "assets/climber-up.webp");
-			loadArt("climberHang", "assets/climber-hang.webp");
-			loadArt("climberFall", "assets/climber-fall.webp");
-			for (let i = 0; i < 4; i++) loadArt("stalk" + i, "assets/stalk-" + i + ".webp");
-
-			// The falling pose is centred on its own mass, not on the fists — it spins
-			// about local (0,0) and holding nothing.
-			const CLIMBER_FALL_H = 0.8711;
-
-			// Hand over hand: the pull is the positive half of the beat that drives
-			// climb, so the tucked pose lands exactly on it and the long one between.
-			function climberPose() {
-				const pulling =
-					phase === "climb" && holding && grab >= 0 && Math.sin(beat * TAU) > 0;
-				return (pulling ? art.climberUp : art.climberHang) || art.climberHang || art.climberUp;
-			}
-
-			function drawSunMoon() {
-				if (ending !== "sunmoon" && phase !== "rise") return;
-				const k = clamp01((riseT - 1) / 1.3);
-				if (k <= 0) return;
-				const s = Math.min(w, h);
-				const y = mix(lightY(), h * 0.3, k);
-				const gap = mix(0, Math.min(w * 0.26, 170), k);
-				const rad = s * 0.075 * k;
-				const pairs = [
-					["sun", w * 0.5 - gap, "#ffc93c", "rgba(255,201,60,0.35)"],
-					["moon", w * 0.5 + gap, "#f2efe4", "rgba(242,239,228,0.3)"],
-				];
-				for (const [name, x, core, halo] of pairs) {
-					const g = ctx.createRadialGradient(x, y, rad * 0.6, x, y, rad * 4.5);
-					g.addColorStop(0, halo);
-					g.addColorStop(1, "rgba(255,201,120,0)");
-					ctx.fillStyle = g;
-					ctx.beginPath();
-					ctx.arc(x, y, rad * 4.5, 0, TAU);
-					ctx.fill();
-					const img = art[name];
-					if (img) {
-						ctx.drawImage(img, x - rad, y - rad, rad * 2, rad * 2);
-					} else {
-						ctx.fillStyle = core;
-						ctx.beginPath();
-						ctx.arc(x, y, rad, 0, TAU);
-						ctx.fill();
-					}
-				}
-			}
-
-			function drawFibers() {
-				ctx.strokeStyle = "rgba(198,172,118,0.75)";
-				ctx.lineWidth = 1.2 * scale() * 0.7;
-				ctx.beginPath();
-				for (const f of fibers) {
-					ctx.globalAlpha = clamp01(f.life);
-					ctx.moveTo(f.x, f.y);
-					ctx.lineTo(f.x + Math.cos(f.rot) * f.len, f.y + Math.sin(f.rot) * f.len);
-				}
-				ctx.stroke();
-				ctx.globalAlpha = 1;
-			}
 
 			// The whole scene is smooth gradients, which is what makes it read as
 			// screen rather than print. One tile of noise laid over everything puts
@@ -999,128 +413,792 @@
 				ctx.restore();
 			}
 
-			function drawVignette() {
+			// `dawn` (0-1) lifts the vignette as daybreak arrives; a scene with no
+			// dawn passes nothing.
+			function drawVignette(dawn = 0) {
 				const g = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.35, w * 0.5, h * 0.5, Math.max(w, h) * 0.78);
 				g.addColorStop(0, "rgba(0,0,0,0)");
-				g.addColorStop(1, "rgba(0,0,0," + (0.42 - 0.2 * dawnAmount()).toFixed(3) + ")");
+				g.addColorStop(1, "rgba(0,0,0," + (0.42 - 0.2 * dawn).toFixed(3) + ")");
 				ctx.fillStyle = g;
 				ctx.fillRect(0, 0, w, h);
 			}
 
-			function update(dt) {
-				t += dt;
-				swing *= Math.pow(0.0015, dt);
-				for (const r of ropes) r.stretch *= Math.pow(0.02, dt);
-				flash = Math.max(0, flash - dt * 1.4);
+			// ── Scenes ──────────────────────────────────────────────────────────
+			// Everything above is shared. A scene owns its own state, update, drawing
+			// and input; it is entered once and then driven by frame().
 
-				if (grab >= 0) mount = Math.min(1, mount + dt * 9);
+			const sceneRopes = (() => {
+				const SCROLL = 3600;
+				const RATE = 1 / 6; // seconds of holding for a full climb
+				const BEATS = 1.7; // hand-over-hand grips per second
+				const PULSE_MEAN = 0.788; // keeps the grip rhythm from slowing the average climb
+				const CAP = {
+					climb: ["Two ropes come down. Only one of them holds.", "해와 달이 된 오누이"],
+					sunmoon: ["The children became the sun and the moon.", "오누이는 해와 달이 되었다"],
+					fall: ["The rope gave way, and the field closed over.", "수수밭이 술렁였다"],
+				};
 
-				const before = climb;
+				let phase = "title"; // title → climb → rise | fall → end
+				let ending = null;
+				let climb = 0;
+				let grab = -1;
+				let holding = false;
+				let beat = 0;
+				let lastBeat = 0;
+				let mount = 0; // 0 on the ground, 1 hanging on a rope
+				let swing = 0;
+				let riseT = 0;
+				let endT = 0;
+				let fallV = 0;
+				let fallFrom = 1;
+				let flash = 0;
+				let impact = null;
 
-				if (phase === "climb") {
-					if (holding) climbStep(dt);
-					else climb = Math.max(0, climb - dt * 0.016);
-				}
+				const ropes = [];
+				const fibers = [];
+				const stars = [];
+				const stalks = [];
+				const mists = [];
 
-				if (phase === "rise") {
-					riseT += dt;
-					if (riseT > 1.4 && ending !== "sunmoon") {
-						ending = "sunmoon";
+				function seed() {
+					stars.length = 0;
+					for (let i = 0; i < 220; i++) {
+						stars.push({
+							x: Math.random(),
+							c: Math.random() * 1.6,
+							p: 0.35 + Math.random() * 0.75,
+							r: 0.45 + Math.pow(Math.random(), 1.8) * 2,
+							tw: Math.random() * TAU,
+							rgb: starColour(Math.random()),
+						});
 					}
-					if (riseT > 2.8 && phase === "rise") {
-						phase = "end";
-						endT = 0;
-						showEnd("sunmoon");
+					mists.length = 0;
+					for (let i = 0; i < 10; i++) {
+						mists.push({
+							x: Math.random(),
+							c: Math.random() * 1.6,
+							p: 0.5 + Math.random() * 0.5,
+							sw: 0.45 + Math.random() * 0.5,
+							sh: 0.09 + Math.random() * 0.09,
+							o: (0.022 + Math.random() * 0.03) * MIST_STRENGTH,
+						});
+					}
+					stalks.length = 0;
+					for (let i = 0; i < 120; i++) {
+						stalks.push({
+							x: Math.random(),
+							hgt: 0.05 + Math.random() * 0.09,
+							lean: (Math.random() - 0.5) * 0.55,
+							head: 2 + Math.random() * 2.4,
+							kind: Math.floor(Math.random() * 4),
+							bow: 0,
+							hit: false,
+						});
 					}
 				}
 
-				if (phase === "fall") {
-					fallV = Math.min(0.8, fallV + dt * 0.55);
-					climb -= fallV * dt;
-					if (climb <= 0) {
-						climb = 0;
-						impact = { x: ropeX(grab < 0 ? 0 : grab, climbY()), r: 0 };
-						ending = "fall";
-						showEnd("fall");
-						phase = "end";
-						endT = 0;
-						for (let i = 0; i < 16; i++) spawnFiber(impact.x, fieldTop() - 10, true);
-						grab = -1;
+				function setCaption(key) {
+					elEn.textContent = CAP[key][0];
+					elKo.textContent = CAP[key][1];
+				}
+
+				function showEnd(key) {
+					elEndKo.textContent = CAP[key][1];
+					elEndEn.textContent = CAP[key][0];
+					elCap.style.opacity = "0";
+					elEnd.style.opacity = "1";
+				}
+
+				function reset() {
+					phase = "title";
+					ending = null;
+					climb = 0;
+					grab = -1;
+					holding = false;
+					beat = 0;
+					lastBeat = 0;
+					mount = 0;
+					swing = 0;
+					riseT = 0;
+					endT = 0;
+					fallV = 0;
+					flash = 0;
+					impact = null;
+					fibers.length = 0;
+					ropes.length = 0;
+					const bad = Math.random() < 0.5 ? 0 : 1;
+					for (let i = 0; i < 2; i++) {
+						ropes.push({
+							rotten: i === bad,
+							breakAt: 0.45 + Math.random() * 0.4,
+							seed: Math.random() * 1000,
+							strain: 0,
+							stretch: 0,
+							snapped: false,
+							snapAt: 0,
+						});
 					}
+					for (const s of stalks) {
+						s.bow = 0;
+						s.hit = false;
+					}
+					elTitle.style.opacity = "1";
+					elCap.style.opacity = "1";
+					elEnd.style.opacity = "0";
+					elAgain.style.opacity = "0";
+					elHint.textContent = "줄을 붙잡고 있으면 올라갑니다";
+					setCaption("climb");
 				}
 
-				if (phase === "end") {
-					endT += dt;
-					if (ending === "sunmoon") riseT += dt;
-					if (impact) impact.r = Math.min(w * 1.4, impact.r + dt * 520);
-					if (endT > 1.2) elAgain.style.opacity = "1";
+				const climbY = () => h * 0.58;
+				const fieldTop = () => h * 0.8 + climb * SCROLL * 0.3;
+				const lightY = () => h * 0.3 + (climb - 1) * SCROLL * 0.6;
+				const ropeBaseX = (i) => w * 0.5 + (i ? 1 : -1) * Math.min(w * 0.15, 86);
+
+				function ropeX(i, y) {
+					const r = ropes[i];
+					const amp = grab === i && holding ? 3 : 9;
+					const scroll = y + climb * SCROLL + r.seed;
+					return (
+						ropeBaseX(i) +
+						Math.sin(scroll * 0.0055 + t * 0.7) * amp +
+						Math.sin(scroll * 0.017) * 2 +
+						(grab === i ? swing : 0)
+					);
 				}
 
-				if (impact) {
-					for (const st of stalks) {
-						if (!st.hit && Math.abs(st.x * w - impact.x) < impact.r) {
-							st.hit = true;
-							st.bow = 1;
+				// Rot only shows on a rope you have actually pulled on.
+				function decayOf(r) {
+					if (!r.rotten) return 0;
+					return clamp01((r.strain - 0.22) / Math.max(0.05, r.breakAt - 0.22));
+				}
+
+				function nearestRope(px, py) {
+					let best = -1;
+					let bestD = Math.max(58, w * 0.17);
+					for (let i = 0; i < 2; i++) {
+						const d = Math.abs(ropeX(i, py) - px);
+						if (d < bestD) {
+							bestD = d;
+							best = i;
 						}
-						if (st.bow > 0) st.bow = Math.max(0, st.bow - dt * 0.9);
+					}
+					return best;
+				}
+
+				function chooseRope(i) {
+					if (i < 0) return;
+					if (phase === "title") {
+						phase = "climb";
+						elTitle.style.opacity = "0";
+						elHint.textContent = "";
+					}
+					if (phase !== "climb") return;
+					if (grab !== -1 && grab !== i) {
+						climb = Math.max(0, climb - 0.035);
+						swing = i ? -16 : 16;
+					}
+					grab = i;
+				}
+
+				function spawnFiber(x, y, burst) {
+					fibers.push({
+						x: x + (Math.random() - 0.5) * 9,
+						y: y + (Math.random() - 0.5) * 26,
+						vx: (Math.random() - 0.5) * (burst ? 150 : 26),
+						vy: (burst ? -60 : 10) + Math.random() * 40,
+						rot: Math.random() * TAU,
+						vr: (Math.random() - 0.5) * 6,
+						len: 3 + Math.random() * (burst ? 9 : 5),
+						life: 1,
+					});
+				}
+
+				function climbStep(dt) {
+					if (grab < 0 || phase !== "climb") return;
+					const r = ropes[grab];
+					const decay = decayOf(r);
+					// A rotten rope gives under the weight: every grip wins a little less.
+					const gain = r.rotten ? 0.88 - 0.22 * decay : 1;
+					beat += dt * BEATS;
+					const pulse = (0.5 + 0.85 * Math.pow(Math.max(0, Math.sin(beat * TAU)), 0.7)) / PULSE_MEAN;
+					climb += RATE * gain * pulse * dt;
+					r.strain = Math.max(r.strain, climb);
+					if (Math.floor(beat) !== lastBeat) {
+						lastBeat = Math.floor(beat);
+						r.stretch = Math.min(1, r.stretch + (r.rotten ? 0.95 : 0.55));
+						const n = decay > 0.05 ? 1 + Math.floor(decay * 3) : 0;
+						for (let i = 0; i < n; i++) spawnFiber(ropeX(grab, climbY() - 40), climbY() - 40, false);
+					}
+					if (r.rotten && climb >= r.breakAt) return snap();
+					if (climb >= 1) {
+						climb = 1;
+						phase = "rise";
+						riseT = 0;
+						holding = false;
 					}
 				}
 
-				const scrolled = (before - climb) * SCROLL;
-				for (let i = fibers.length - 1; i >= 0; i--) {
-					const f = fibers[i];
-					f.vy += 240 * dt;
-					f.x += f.vx * dt;
-					f.y += f.vy * dt + scrolled;
-					f.rot += f.vr * dt;
-					f.life -= dt * 0.85;
-					if (f.life <= 0 || f.y > h + 40) fibers.splice(i, 1);
+				function snap() {
+					const r = ropes[grab];
+					r.snapped = true;
+					r.snapAt = climb;
+					phase = "fall";
+					fallFrom = climb;
+					fallV = 0.04;
+					flash = 0.3;
+					holding = false;
+					for (let i = 0; i < 26; i++) spawnFiber(ropeX(grab, climbY() - 26), climbY() - 26, true);
+				}
+
+				function pos(e) {
+					const p = e.touches ? e.touches[0] : e;
+					return { x: p.clientX, y: p.clientY };
+				}
+
+				function onDown(e) {
+					e.preventDefault();
+					if (phase === "end") {
+						if (endT > 1) reset();
+						return;
+					}
+					if (phase !== "title" && phase !== "climb") return;
+					const p = pos(e);
+					const i = nearestRope(p.x, p.y);
+					if (i < 0) return;
+					chooseRope(i);
+					holding = true;
+				}
+
+				function onUp() {
+					holding = false;
+				}
+
+				function onKey(e) {
+					if (phase === "end") {
+						if (endT > 1) reset();
+						return;
+					}
+					if (e.key === "ArrowLeft") chooseRope(0);
+					else if (e.key === "ArrowRight") chooseRope(1);
+					else if (e.key === "ArrowDown" || e.key === " " || e.key === "Enter") {
+						if (grab < 0) chooseRope(0);
+						holding = true;
+					} else return;
+					e.preventDefault();
+				}
+
+				function onKeyUp(e) {
+					if (e.key === "ArrowDown" || e.key === " " || e.key === "Enter") holding = false;
+				}
+
+				// Daybreak arrives from the top, where the two lights are; night lingers below.
+				function dawnAmount() {
+					return phase === "rise" || ending === "sunmoon" ? clamp01((riseT - 0.5) / 1.6) : 0;
+				}
+
+				function drawSky() {
+					const lift = clamp01((climb - 0.55) / 0.45);
+					const dawn = dawnAmount();
+					const top = mixArr(mixArr([16, 19, 43], [58, 42, 98], lift * 0.55), [214, 142, 96], dawn);
+					const midY = mixArr([19, 18, 45], [104, 72, 116], dawn);
+					const bottom = mixArr([23, 18, 46], [28, 22, 58], dawn);
+					const g = ctx.createLinearGradient(0, 0, 0, h);
+					g.addColorStop(0, rgb(top, top, 0));
+					g.addColorStop(0.45, rgb(midY, midY, 0));
+					g.addColorStop(1, rgb(bottom, bottom, 0));
+					ctx.fillStyle = g;
+					ctx.fillRect(0, 0, w, h);
+				}
+
+				// Bone-white to gold. Returns the "rgba(r,g,b," prefix; the twinkle supplies
+				// the alpha each frame.
+				function starColour(warm) {
+					const c = mixArr([236, 226, 196], [247, 205, 130], warm * STAR_WARMTH);
+					return "rgba(" + Math.round(c[0]) + "," + Math.round(c[1]) + "," + Math.round(c[2]) + ",";
+				}
+
+				function drawStars() {
+					for (const s of stars) {
+						let y = h * 0.5 + (climb - s.c) * SCROLL * s.p;
+						if (y > h + 30) {
+							s.c += 1.6;
+							y = h * 0.5 + (climb - s.c) * SCROLL * s.p;
+						} else if (y < -30) {
+							s.c -= 1.6;
+							y = h * 0.5 + (climb - s.c) * SCROLL * s.p;
+						}
+						if (y < -10 || y > h + 10) continue;
+						const a = (0.3 + 0.65 * s.p) * (0.6 + 0.4 * Math.sin(t * 1.6 + s.tw));
+						ctx.fillStyle = s.rgb + a.toFixed(3) + ")";
+						ctx.beginPath();
+						ctx.arc(s.x * w, y, s.r * s.p, 0, TAU);
+						ctx.fill();
+					}
+				}
+
+				function drawMist() {
+					for (const m of mists) {
+						let y = h * 0.5 + (climb - m.c) * SCROLL * m.p;
+						if (y > h + 400) {
+							m.c += 1.6;
+							y = h * 0.5 + (climb - m.c) * SCROLL * m.p;
+						} else if (y < -400) {
+							m.c -= 1.6;
+							y = h * 0.5 + (climb - m.c) * SCROLL * m.p;
+						}
+						const rx = w * m.sw;
+						const ry = h * m.sh;
+						if (y < -ry * 3 || y > h + ry * 3) continue;
+						ctx.save();
+						ctx.translate(m.x * w, y);
+						ctx.scale(1, ry / rx);
+						const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+						g.addColorStop(0, "rgba(104,100,150," + m.o.toFixed(3) + ")");
+						g.addColorStop(1, "rgba(104,100,150,0)");
+						ctx.fillStyle = g;
+						ctx.beginPath();
+						ctx.arc(0, 0, rx, 0, TAU);
+						ctx.fill();
+						ctx.restore();
+					}
+				}
+
+				// The ground keeps glowing under you for a while after it drops away.
+				function drawHorizon() {
+					const k = 1 - clamp01(climb / 0.4);
+					if (k <= 0) return;
+					const g = ctx.createRadialGradient(w * 0.5, h * 1.02, 0, w * 0.5, h * 1.02, h * 0.62);
+					g.addColorStop(0, "rgba(206,140,92," + (0.26 * k).toFixed(3) + ")");
+					g.addColorStop(1, "rgba(206,140,92,0)");
+					ctx.fillStyle = g;
+					ctx.fillRect(0, 0, w, h);
+				}
+
+				function drawLight() {
+					const y = lightY();
+					const rad = Math.max(w, h) * 0.95;
+					if (y < -rad || y > h + rad) return;
+					const g = ctx.createRadialGradient(w * 0.5, y, 0, w * 0.5, y, rad);
+					g.addColorStop(0, "rgba(255,233,176,0.92)");
+					g.addColorStop(0.14, "rgba(255,214,138,0.42)");
+					g.addColorStop(0.45, "rgba(255,201,120,0.12)");
+					g.addColorStop(1, "rgba(255,201,120,0)");
+					ctx.fillStyle = g;
+					ctx.fillRect(0, 0, w, h);
+				}
+
+				function drawField() {
+					const top = fieldTop();
+					if (top > h + 4) return;
+					const s = scale();
+
+					ctx.fillStyle = "#1b1524";
+					ctx.fillRect(0, top, w, h - top + 2);
+
+					for (const st of stalks) {
+						const x = st.x * w;
+						const hh = st.hgt * h * (1 - st.bow * 0.45);
+						const sway = Math.sin(t * 0.9 + st.x * 12) * 3;
+						// the wave from the landing shoves each stalk away, then it rights itself
+						const push = impact ? Math.sign(x - impact.x) * st.bow * 26 : 0;
+						const tipX = x + st.lean * 22 + sway + push;
+
+						const blade = art["stalk" + st.kind];
+						if (blade) {
+							// A drawing cannot bend, so the stalk leans from its root by the angle
+							// the tip would have reached. Sway, lean and the landing shove all
+							// still come through, because they only feed this one rotation.
+							ctx.save();
+							ctx.translate(x, top + 6);
+							ctx.rotate(Math.atan2(tipX - x, hh));
+							const bw = hh * (blade.width / blade.height);
+							ctx.drawImage(blade, -bw / 2, -hh, bw, hh);
+							ctx.restore();
+							continue;
+						}
+
+						ctx.strokeStyle = "#2a1f2e";
+						ctx.lineWidth = 1.6 * s;
+						ctx.beginPath();
+						ctx.moveTo(x, top + 6);
+						ctx.quadraticCurveTo(x + st.lean * 14 + sway + push * 0.45, top - hh * 0.5, tipX, top - hh);
+						ctx.stroke();
+						ctx.fillStyle = "#302234";
+						ctx.beginPath();
+						ctx.ellipse(tipX, top - hh, st.head * 0.7 * s, st.head * 1.5 * s, st.lean * 0.4 + st.bow * 0.5, 0, TAU);
+						ctx.fill();
+					}
+				}
+
+				// A rope is a cylinder, not a line: rim, body, shaded side and lit side are
+				// four strokes over one centreline, and the twist is drawn as grooves that
+				// bow the way they would wrap around it.
+				function strokeAlong(pts, dx) {
+					ctx.beginPath();
+					ctx.moveTo(pts[0] + dx, pts[1]);
+					for (let k = 2; k < pts.length; k += 2) ctx.lineTo(pts[k] + dx, pts[k + 1]);
+					ctx.stroke();
+				}
+
+				function drawRope(i) {
+					const r = ropes[i];
+					const s = scale();
+					const decay = decayOf(r);
+					const fade = phase === "rise" ? 1 - clamp01(riseT / 1.1) : 1;
+					if (fade <= 0) return;
+
+					let bottom = Math.min(h + 20, fieldTop() - 12);
+					if (r.snapped) bottom = Math.min(bottom, climbY() + (climb - r.snapAt) * SCROLL);
+					if (bottom < -20) return;
+
+					// One pass over the centreline; every layer below reuses these points.
+					const pts = [];
+					for (let y = -24; y <= bottom; y += 6) pts.push(ropeX(i, y), y);
+					pts.push(ropeX(i, bottom), bottom);
+
+					const unit = s * 0.62;
+					const W = (7 - decay * 1.8) * unit;
+					const hw = W * 0.5;
+					const body = decay ? rgb([216, 192, 138], [132, 110, 74], decay) : "rgb(216,192,138)";
+					const lit = decay ? rgb([245, 227, 178], [168, 144, 100], decay) : "rgb(245,227,178)";
+					const shade = decay ? rgb([138, 112, 66], [86, 70, 44], decay) : "rgb(138,112,66)";
+
+					ctx.globalAlpha = fade;
+					ctx.lineCap = "round";
+					ctx.lineJoin = "round";
+
+					// rim — separates the rope from the sky behind it
+					ctx.strokeStyle = "rgba(32,24,14,0.5)";
+					ctx.lineWidth = W * 1.2;
+					strokeAlong(pts, 0);
+
+					ctx.strokeStyle = body;
+					ctx.lineWidth = W;
+					strokeAlong(pts, 0);
+
+					// the light in this scene comes from above and slightly left
+					ctx.globalAlpha = fade * 0.5;
+					ctx.strokeStyle = shade;
+					ctx.lineWidth = W * 0.4;
+					strokeAlong(pts, hw * 0.58);
+
+					ctx.globalAlpha = fade * 0.55;
+					ctx.strokeStyle = lit;
+					ctx.lineWidth = W * 0.28;
+					strokeAlong(pts, -hw * 0.6);
+					ctx.globalAlpha = fade;
+
+					// twist — grooves between the three strands, scrolling with the climb
+					const step = W * 1.25;
+					const off = ((climb * SCROLL) % step) - step;
+					ctx.lineWidth = Math.max(0.8, W * 0.13);
+					for (let pass = 0; pass < 2; pass++) {
+						// pass 0 is the groove itself, pass 1 the lit edge of the strand above it
+						ctx.strokeStyle = pass ? lit : "rgba(58,42,26,0.55)";
+						ctx.globalAlpha = fade * (pass ? 0.34 : 0.85 - decay * 0.3);
+						const shift = pass ? -W * 0.16 : 0;
+						ctx.beginPath();
+						for (let y = off - 24; y <= bottom; y += step) {
+							if (y < -30) continue;
+							const x = ropeX(i, y) + shift;
+							ctx.moveTo(x - hw * 0.92, y + hw * 0.66);
+							ctx.quadraticCurveTo(x, y + hw * 0.08, x + hw * 0.92, y - hw * 0.66);
+						}
+						ctx.stroke();
+					}
+					ctx.globalAlpha = fade;
+
+					// rot pushes single fibres out of the lay
+					if (decay > 0.25) {
+						ctx.strokeStyle = "rgba(150,126,84," + (decay * 0.8).toFixed(2) + ")";
+						ctx.lineWidth = Math.max(0.7, W * 0.1);
+						ctx.beginPath();
+						const hair = step * 2.4;
+						const hoff = ((climb * SCROLL * 0.5 + r.seed) % hair) - hair;
+						for (let y = hoff - 24, n = 0; y <= bottom; y += hair, n++) {
+							if (y < -30) continue;
+							const x = ropeX(i, y);
+							const dir = n % 2 ? 1 : -1;
+							ctx.moveTo(x + dir * hw * 0.6, y);
+							ctx.quadraticCurveTo(
+								x + dir * hw * 1.9,
+								y - hw * 0.5,
+								x + dir * hw * (2 + decay * 1.6),
+								y + hw * 0.7,
+							);
+						}
+						ctx.stroke();
+					}
+
+					// frayed end
+					if (bottom < h + 18) {
+						const x = ropeX(i, bottom);
+						ctx.strokeStyle = body;
+						ctx.lineWidth = Math.max(0.8, W * 0.16);
+						ctx.beginPath();
+						for (let k = -3; k <= 3; k++) {
+							const spread = k * hw * 0.5;
+							ctx.moveTo(x + spread * 0.25, bottom - hw * 0.5);
+							ctx.quadraticCurveTo(
+								x + spread * 0.8,
+								bottom + hw * 0.9,
+								x + spread,
+								bottom + hw * (1.8 + Math.abs(k) * 0.5),
+							);
+						}
+						ctx.stroke();
+					}
+					ctx.globalAlpha = 1;
+				}
+
+				// x is the rope itself; the body hangs beside it so the silhouette stays readable.
+				function drawClimber() {
+					if (phase === "end") return; // the field has closed over, or the sky has taken them
+					const s = scale();
+					if (phase === "rise") {
+						const k = clamp01(riseT / 1);
+						const y = mix(climbY(), lightY(), k * k);
+						if (riseT < 1.05) figure(ropeX(grab < 0 ? 0 : grab, y), y, s * (1 - k * 0.35), 0, 0);
+						return;
+					}
+					const groundY = fieldTop() - 14 * s;
+					const onRope = grab >= 0;
+					const ry = climbY() + (onRope ? ropes[grab].stretch * 7 * s : 0);
+					const x = onRope ? ropeX(grab, ry) : w * 0.5;
+					// falling, the climber also drops out of the camera and into the field
+					const y =
+						phase === "fall"
+							? mix(climbY(), fieldTop() - 12 * s, 1 - clamp01(climb / Math.max(0.001, fallFrom)))
+							: mix(groundY, ry, mount);
+					const rot = phase === "fall" ? Math.sin(t * 7) * 0.5 + fallV * 1.2 : 0;
+					const side = phase === "fall" || !onRope ? 0 : grab === 0 ? 1 : -1;
+					figure(x, y, s, rot, side);
+				}
+
+
+				// Hand over hand: the pull is the positive half of the beat that drives
+				// climb, so the tucked pose lands exactly on it and the long one between.
+				function climberPose() {
+					const pulling =
+						phase === "climb" && holding && grab >= 0 && Math.sin(beat * TAU) > 0;
+					return (pulling ? art.climberUp : art.climberHang) || art.climberHang || art.climberUp;
+				}
+
+				function drawSunMoon() {
+					if (ending !== "sunmoon" && phase !== "rise") return;
+					const k = clamp01((riseT - 1) / 1.3);
+					if (k <= 0) return;
+					const s = Math.min(w, h);
+					const y = mix(lightY(), h * 0.3, k);
+					const gap = mix(0, Math.min(w * 0.26, 170), k);
+					const rad = s * 0.075 * k;
+					const pairs = [
+						["sun", w * 0.5 - gap, "#ffc93c", "rgba(255,201,60,0.35)"],
+						["moon", w * 0.5 + gap, "#f2efe4", "rgba(242,239,228,0.3)"],
+					];
+					for (const [name, x, core, halo] of pairs) {
+						const g = ctx.createRadialGradient(x, y, rad * 0.6, x, y, rad * 4.5);
+						g.addColorStop(0, halo);
+						g.addColorStop(1, "rgba(255,201,120,0)");
+						ctx.fillStyle = g;
+						ctx.beginPath();
+						ctx.arc(x, y, rad * 4.5, 0, TAU);
+						ctx.fill();
+						const img = art[name];
+						if (img) {
+							ctx.drawImage(img, x - rad, y - rad, rad * 2, rad * 2);
+						} else {
+							ctx.fillStyle = core;
+							ctx.beginPath();
+							ctx.arc(x, y, rad, 0, TAU);
+							ctx.fill();
+						}
+					}
+				}
+
+				function drawFibers() {
+					ctx.strokeStyle = "rgba(198,172,118,0.75)";
+					ctx.lineWidth = 1.2 * scale() * 0.7;
+					ctx.beginPath();
+					for (const f of fibers) {
+						ctx.globalAlpha = clamp01(f.life);
+						ctx.moveTo(f.x, f.y);
+						ctx.lineTo(f.x + Math.cos(f.rot) * f.len, f.y + Math.sin(f.rot) * f.len);
+					}
+					ctx.stroke();
+					ctx.globalAlpha = 1;
+				}
+
+				function update(dt) {
+					swing *= Math.pow(0.0015, dt);
+					for (const r of ropes) r.stretch *= Math.pow(0.02, dt);
+					flash = Math.max(0, flash - dt * 1.4);
+
+					if (grab >= 0) mount = Math.min(1, mount + dt * 9);
+
+					const before = climb;
+
+					if (phase === "climb") {
+						if (holding) climbStep(dt);
+						else climb = Math.max(0, climb - dt * 0.016);
+					}
+
+					if (phase === "rise") {
+						riseT += dt;
+						if (riseT > 1.4 && ending !== "sunmoon") {
+							ending = "sunmoon";
+						}
+						if (riseT > 2.8 && phase === "rise") {
+							phase = "end";
+							endT = 0;
+							showEnd("sunmoon");
+						}
+					}
+
+					if (phase === "fall") {
+						fallV = Math.min(0.8, fallV + dt * 0.55);
+						climb -= fallV * dt;
+						if (climb <= 0) {
+							climb = 0;
+							impact = { x: ropeX(grab < 0 ? 0 : grab, climbY()), r: 0 };
+							ending = "fall";
+							showEnd("fall");
+							phase = "end";
+							endT = 0;
+							for (let i = 0; i < 16; i++) spawnFiber(impact.x, fieldTop() - 10, true);
+							grab = -1;
+						}
+					}
+
+					if (phase === "end") {
+						endT += dt;
+						if (ending === "sunmoon") riseT += dt;
+						if (impact) impact.r = Math.min(w * 1.4, impact.r + dt * 520);
+						if (endT > 1.2) elAgain.style.opacity = "1";
+					}
+
+					if (impact) {
+						for (const st of stalks) {
+							if (!st.hit && Math.abs(st.x * w - impact.x) < impact.r) {
+								st.hit = true;
+								st.bow = 1;
+							}
+							if (st.bow > 0) st.bow = Math.max(0, st.bow - dt * 0.9);
+						}
+					}
+
+					const scrolled = (before - climb) * SCROLL;
+					for (let i = fibers.length - 1; i >= 0; i--) {
+						const f = fibers[i];
+						f.vy += 240 * dt;
+						f.x += f.vx * dt;
+						f.y += f.vy * dt + scrolled;
+						f.rot += f.vr * dt;
+						f.life -= dt * 0.85;
+						if (f.life <= 0 || f.y > h + 40) fibers.splice(i, 1);
+					}
+				}
+
+				function figure(x, y, s, rot, side) {
+					if (phase === "fall" && art.climberFall) {
+						drawFigure(art.climberFall, x, y, s, rot, side, "mass");
+						return;
+					}
+					drawFigure(climberPose(), x, y, s, rot, side, "grip");
+				}
+
+				function enter() {
+					seed();
+					reset();
+				}
+
+				function draw() {
+					drawSky();
+					drawStars();
+					drawMist();
+					drawHorizon();
+					drawLight();
+					drawField();
+					if (phase !== "end" || ending === "fall") {
+						for (let i = 0; i < ropes.length; i++) drawRope(i);
+					}
+					drawFibers();
+					drawClimber();
+					if (phase === "end") {
+						const dim = clamp01(endT / 0.8) * (ending === "sunmoon" ? 0.34 : 0.6);
+						ctx.fillStyle = "rgba(8,10,22," + dim.toFixed(3) + ")";
+						ctx.fillRect(0, 0, w, h);
+					}
+					drawSunMoon();
+					drawGrain();
+					drawVignette(dawnAmount());
+					if (flash > 0) {
+						ctx.fillStyle = "rgba(255,240,210," + (flash * 0.5).toFixed(3) + ")";
+						ctx.fillRect(0, 0, w, h);
+					}
+				}
+
+				return { name: "ropes", enter, update, draw, down: onDown, up: onUp, key: onKey, keyUp: onKeyUp };
+			})();
+
+			let scene = null;
+			let pending = null;
+			let veil = 0; // 0 clear, 1 blacked out
+			let veilDir = 0; // +1 going dark, -1 coming back, 0 settled
+			let veilRate = 0;
+
+			// Every scene in this piece ends in the dark, so the blackout lives here
+			// rather than in each of them. goTo(s) swaps immediately; goTo(s, 0.8)
+			// fades down over 0.8s, enters the new scene behind the black, and lifts.
+			function goTo(s, seconds) {
+				if (!seconds || !scene) {
+					scene = s;
+					scene.enter();
+					return;
+				}
+				pending = s;
+				veilDir = 1;
+				veilRate = 1 / seconds;
+			}
+
+			function stepVeil(dt) {
+				if (!veilDir) return;
+				veil = clamp01(veil + veilDir * veilRate * dt);
+				elVeil.style.opacity = veil.toFixed(3);
+				if (veilDir > 0 && veil >= 1) {
+					scene = pending;
+					pending = null;
+					scene.enter();
+					veilDir = -1;
+				} else if (veilDir < 0 && veil <= 0) {
+					veilDir = 0;
 				}
 			}
+
+			const changing = () => veilDir !== 0;
 
 			function frame(now) {
 				const dt = Math.min(0.033, (now - last) / 1000);
 				last = now;
-				update(dt);
-
+				t += dt;
+				stepVeil(dt);
+				scene.update(dt);
 				ctx.clearRect(0, 0, w, h);
-				drawSky();
-				drawStars();
-				drawMist();
-				drawHorizon();
-				drawLight();
-				drawField();
-				if (phase !== "end" || ending === "fall") {
-					for (let i = 0; i < ropes.length; i++) drawRope(i);
-				}
-				drawFibers();
-				drawClimber();
-				if (phase === "end") {
-					const dim = clamp01(endT / 0.8) * (ending === "sunmoon" ? 0.34 : 0.6);
-					ctx.fillStyle = "rgba(8,10,22," + dim.toFixed(3) + ")";
-					ctx.fillRect(0, 0, w, h);
-				}
-				drawSunMoon();
-				drawGrain();
-				drawVignette();
-				if (flash > 0) {
-					ctx.fillStyle = "rgba(255,240,210," + (flash * 0.5).toFixed(3) + ")";
-					ctx.fillRect(0, 0, w, h);
-				}
+				scene.draw();
 				requestAnimationFrame(frame);
 			}
 
 			window.addEventListener("resize", resize);
-			cv.addEventListener("pointerdown", onDown);
-			window.addEventListener("pointerup", onUp);
-			window.addEventListener("pointercancel", onUp);
-			window.addEventListener("keydown", onKey);
-			window.addEventListener("keyup", onKeyUp);
+			cv.addEventListener("pointerdown", (e) => changing() || scene.down(e));
+			window.addEventListener("pointerup", () => scene.up());
+			window.addEventListener("pointercancel", () => scene.up());
+			window.addEventListener("keydown", (e) => changing() || scene.key(e));
+			window.addEventListener("keyup", (e) => scene.keyUp(e));
 
 			resize();
 			makeGrain();
-			seed();
-			reset();
+			goTo(sceneRopes);
 			requestAnimationFrame(frame);
 		</script>
 	</body>
