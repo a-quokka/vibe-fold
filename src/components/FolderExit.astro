@@ -52,15 +52,23 @@
 			(other) => other !== folder,
 		);
 		const from = folder.getBoundingClientRect();
-		// The folder crosses at the size it already is. It has to give some of
-		// that back to stand upright — a folder as wide as this one is taller
-		// than the screen once it is turned — but that belongs to the turn, on
-		// the other side, where it reads as the folder settling into place
-		// rather than as the page shrinking it on the way out.
+
+		/** Where it is going: the size the volume page draws a folder at, lying
+		 *  on its side. The page over there is authored `--stage-w` by
+		 *  `--stage-h` and turned a quarter to the right, so what lands has to be
+		 *  that turned already — the long side across.
+		 *
+		 *  Crossing at the size it had on this page was the bug: a folder in the
+		 *  stack is as wide as the page, and at 1920 it arrived nearly twice the
+		 *  size the volume page draws one, so the spread ran off both edges. It
+		 *  gives that width back on the way over, which is where the eye expects
+		 *  a thing being picked up to lose it. */
+		const stageWidth = cssLength('--stage-w');
+		const stageHeight = cssLength('--stage-h');
 		const to = {
-			width: from.width,
-			height: from.height,
-			left: (window.innerWidth - from.width) / 2,
+			width: stageHeight,
+			height: stageWidth,
+			left: (window.innerWidth - stageHeight) / 2,
 			// Not centred: hung from the top, with the navigation's band left
 			// clear above it. What hangs below the screen hangs below the screen.
 			top: cssLength('--stage-top'),
@@ -71,8 +79,10 @@
 				HANDOFF,
 				JSON.stringify({
 					id: folder.dataset.flipId ?? '',
-					width: from.width,
-					height: from.height,
+					// What it is holding when the screen changes — the size it
+					// flew to, not the size it set off from.
+					width: to.width,
+					height: to.height,
 					at: Date.now(),
 				}),
 			);
@@ -133,12 +143,15 @@
 				{ opacity: 0, duration: 0.28, ease: 'power2.out' },
 				0,
 			)
-			// 2. The folder takes the tagline's place — moving, not resizing.
+			// 2. The folder takes the tagline's place, giving back the width it
+			//    only had because it was standing in a stack as wide as the page.
 			.to(
 				proxy,
 				{
 					left: to.left,
 					top: to.top,
+					width: to.width,
+					height: to.height,
 					duration: 0.86,
 					ease: 'power3.inOut',
 				},
