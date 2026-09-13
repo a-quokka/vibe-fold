@@ -526,8 +526,16 @@ const { color, ink, label, title, summary, works } = Astro.props;
 					left: 'auto',
 					top: 'auto',
 					translate: 'none',
-					marginLeft: `${folderBox.left}px`,
-					marginTop: `${folderBox.top}px`,
+					// Where it is *meant* to be, not where a rect says it is. The
+					// folder is centred by `left: 50%` and a `translate` of half
+					// its own width, and reading that back has turned out to
+					// depend on when the stylesheet lands: the dev server has its
+					// CSS in the document, production fetches a file, and on
+					// production the rect came back half a folder to the right —
+					// the 50% applied, the translate not yet. The numbers below
+					// are the two the transition was aiming at all along.
+					marginLeft: `${Math.round((scene.clientWidth - folderBox.width) / 2)}px`,
+					marginTop: `${Math.round(headerHeight)}px`,
 					width: `${folderBox.width}px`,
 					height: 'auto',
 					minHeight: `${folderBox.height}px`,
