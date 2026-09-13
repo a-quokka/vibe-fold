@@ -218,7 +218,7 @@
 	 * is read at, and that measure is a page width, not a folder's. The folder
 	 * grows to hold it — 7rem of its own stock around the sheet, the trailing
 	 * side carrying the tab. Closed it is --stage-w; this is what it opens to. */
-	--stage-paper-w: min(90rem, calc(100vw - 12rem));
+	--stage-paper-w: min(80rem, calc(100vw - 12rem));
 	--stage-open-w: calc(var(--stage-paper-w) + 7rem);
 }
 
