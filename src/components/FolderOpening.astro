@@ -403,6 +403,17 @@ const { color, ink, label, title, summary, works } = Astro.props;
 	const cover = document.querySelector<HTMLElement>('[data-opening-cover]');
 	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
+	/** A length written in CSS, measured rather than parsed — the same trick the
+	 *  exit uses on the page before this one. */
+	function cssLength(property: string): number {
+		const box = document.createElement('div');
+		box.style.cssText = `position:fixed;left:0;top:0;width:0;height:var(${property});visibility:hidden;pointer-events:none`;
+		document.body.appendChild(box);
+		const { height } = box.getBoundingClientRect();
+		box.remove();
+		return height;
+	}
+
 	if (scene && folder && cover) {
 		if (reduced.matches) {
 			scene.remove();
@@ -413,11 +424,19 @@ const { color, ink, label, title, summary, works } = Astro.props;
 			 *  are its own, so what it gains in width it gains in height, and the
 			 *  page scrolls for the rest. The folder is the one thing allowed past
 			 *  the bottom of the screen. */
-			/** The folder opens at the size it arrived at. Nothing about a cover
-			 *  swinging back changes how big the folder is, and a folder that
-			 *  grows as it opens reads as the page zooming rather than as a thing
-			 *  being opened. */
+			/** It arrives closed, at --stage-w, and opens out to --stage-open-w:
+			 *  a shut folder is a folder, but an open one is something being read,
+			 *  and what is read is the sheet inside it at a page's measure.
+			 *
+			 *  The height that comes with that width has to be measured, not
+			 *  guessed — the copy reflows into a wider column and the sheet ends
+			 *  where the words end. So the width is put on, the height read, and
+			 *  the width taken straight off again before anything paints. */
+			const openWidth = cssLength('--stage-open-w');
+			const closedWidth = folder.style.width;
+			folder.style.width = `${openWidth}px`;
 			const openHeight = folder.offsetHeight;
+			folder.style.width = closedWidth;
 
 			/** Opened, the folder is taller than the screen, and growing about its
 			 *  own centre would push its top edge up under the navigation — the
@@ -441,7 +460,12 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				// Nothing was clicked to get here, so there is no turn to play. The
 				// folder is put straight into the state the turn would have left it
 				// in, and the page arrives instead.
-				gsap.set(folder, { rotation: 0, '--sheen-angle': '180deg', y: openY });
+				gsap.set(folder, {
+					rotation: 0,
+					'--sheen-angle': '180deg',
+					y: openY,
+					width: openWidth,
+				});
 				gsap.set(cover, { rotateY: -180 });
 			}
 
@@ -463,7 +487,11 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				.to(cover, { rotateY: -180, duration: 0.94, ease: 'power3.inOut' }, '>0.08')
 				// It only moves: down to where its top clears the header, and not an
 				// inch wider than it already is.
-				.to(folder, { y: openY, duration: 0.94, ease: 'power3.inOut' }, '<');
+				.to(
+					folder,
+					{ y: openY, width: openWidth, duration: 0.94, ease: 'power3.inOut' },
+					'<',
+				);
 
 			/** The transition ends and the page begins — in the same place, at the
 			 *  same size, so there is nothing to see in the change.

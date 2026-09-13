@@ -214,6 +214,12 @@
 	 * folder arrives low and what falls past the bottom of the screen falls past
 	 * the bottom of the screen. */
 	--stage-top: 31.25rem;
+	/* Opened, the folder lies out: the sheet inside it is the measure the volume
+	 * is read at, and that measure is a page width, not a folder's. The folder
+	 * grows to hold it — 7rem of its own stock around the sheet, the trailing
+	 * side carrying the tab. Closed it is --stage-w; this is what it opens to. */
+	--stage-paper-w: min(90rem, calc(100vw - 12rem));
+	--stage-open-w: calc(var(--stage-paper-w) + 7rem);
 }
 
 /* Tablet and below. A folder as tall as the window is right on a wide screen,
