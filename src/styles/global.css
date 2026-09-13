@@ -1,30 +1,56 @@
-@font-face {
-	font-family: "NEXON Lv1 Gothic";
-	src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@2.1/NEXONLv1GothicOTF.woff")
-		format("woff");
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
-}
+@import './pretendard.css';
 
-@font-face {
-	font-family: "NEXON Lv1 Gothic";
-	src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@2.1/NEXONLv1GothicOTFBold.woff")
-		format("woff");
-	font-weight: 700;
-	font-style: normal;
-	font-display: swap;
+/* Registered so it can be interpolated: an unregistered custom property jumps
+ * between values instead of sweeping through them, and this one is swept as the
+ * folder turns. */
+@property --sheen-angle {
+	syntax: '<angle>';
+	initial-value: 180deg;
+	inherits: true;
 }
 
 :root {
-	--color-bg: #ffffff;
-	--color-text: #000000;
-	--color-muted: rgba(0, 0, 0, 0.55);
+	/* Dark, following the reference. Against #191919: body text 16.03:1,
+	 * muted 6.97:1. */
+	--color-bg: #191919;
+	--color-text: #f7f4ef;
+	--color-muted: #a3a3a3;
 	--color-chrome: #ffffff;
+	/* Neon pink, for the selection and the grips at either end of it. */
+	--color-select: #ff2e88;
+	/* Glass. One material for every pane that floats over the page — the
+	 * selection callout, the guestbook, the header once it lifts off the top.
+	 * Four shadows do the work: a hairline rim, a light caught on the top edge,
+	 * a faint halo that separates the pane from a dark ground, and the drop that
+	 * puts it above the page. Depth is shadow, never a border. */
+	--glass-bg: rgb(28 28 30 / 0.44);
+	--glass-blur: blur(28px) saturate(180%);
+	--glass-rim: inset 0 0 0 0.5px rgb(255 255 255 / 0.18);
+	--glass-sheen: inset 0 1px 0 rgb(255 255 255 / 0.22);
+	--glass-glow: 0 0 40px -6px rgb(255 255 255 / 0.1);
+	--glass-drop: 0 18px 48px -12px rgb(0 0 0 / 0.55);
+	--glass-shadow: var(--glass-rim), var(--glass-sheen), var(--glass-glow), var(--glass-drop);
+
+	/* The editing-tool box drawn by dragging across an empty part of the page.
+	 * The same pink as a text selection: both are the page being dragged across,
+	 * and one colour says so. */
+	--color-marquee: var(--color-select);
+	/* Collage cards stay paper-white whatever the page does. */
+	--color-card: #ffffff;
+	--color-card-text: #111111;
+	--color-card-muted: rgba(0, 0, 0, 0.55);
 	--color-soon-bg: #f1f1f1;
-	--color-soon-text: rgba(0, 0, 0, 0.1);
-	--font-sans: "NEXON Lv1 Gothic", "Helvetica Neue", sans-serif;
+	--color-soon-text: rgba(0, 0, 0, 0.55);
+	/* Latin runs in Helvetica, Hangul in Pretendard. Helvetica carries no Hangul
+	 * glyphs, so Korean falls through to Pretendard on its own — the order is the
+	 * whole mechanism. Arial stands in for Helvetica on Windows (same metrics);
+	 * it carries no Hangul either, so the fallthrough still holds. */
+	--font-sans: "Helvetica Neue", Helvetica, Arial, "Pretendard", -apple-system,
+		BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 	--page-pad: clamp(1.25rem, 5.2vw, 6.25rem);
+	/* The widest the page is allowed to get. Past this the stack stops growing
+	 * and the screen grows around it instead. */
+	--w-max: 106.25rem;
 	--space-hero-y: clamp(2.5rem, 4.2vw, 5rem);
 	--space-archive-y: clamp(2.5rem, 4.2vw, 5rem);
 	--hero-row-h: clamp(20rem, 22vw, 26.25rem);
@@ -35,12 +61,208 @@
 	--text-display: clamp(2.25rem, 2.8vw, 3.25rem);
 	--text-brand: 1.125rem;
 	--text-brand-sm: 1rem;
+	--text-nav: clamp(0.875rem, 1.6vw, 1.25rem);
+	/* Reference header is 69px tall, transparent, and sits over the page. */
+	/* 45px wordmark inside a 56px bar left 5px of air top and bottom. The
+	 * references sit at ~10px; this goes a little wider still. */
+	--h-header: clamp(3.5rem, 5vw, 4.5rem);
+	--space-nav-gap: clamp(1.125rem, 2.4vw, 1.875rem);
 	--text-heading: 1.125rem;
 	--text-body: 0.9375rem;
 	--text-meta: 0.8125rem;
+
+	/* Archive list: oversized rows that rest faded and come forward on hover.
+	   40px at phone width up to 110px on a wide desktop. */
+	--text-list: clamp(2.5rem, 7.6vw, 6.875rem);
+	--text-list-label: clamp(0.875rem, 1.1vw, 1.125rem);
+	--size-list-chevron: clamp(1.375rem, 2.4vw, 3rem);
+	--space-list-gap: clamp(0.5rem, 1.2vw, 1.25rem);
+	/* 3.36:1 on white — faded, but still legible at this size. */
+	--list-rest-opacity: 0.45;
+
+	/* Top slogan: the page opens on the tagline alone, centred in the viewport.
+	   22px on a phone up to 60px on a wide desktop. */
+	--text-slogan: clamp(1.375rem, 3.8vw, 3.75rem);
+	/* Measured in em so the line breaks at the same word count at every size. */
+	--measure-slogan: 17.9em;
+	/* Leaves the top of the folder stack inside the first screen — but tied to
+	 * the tagline's own size, not to the viewport alone. A flat 62svh on a tall
+	 * narrow window left the sentence stranded in a field of black; eleven lines
+	 * of its own type is the same proportion the wide layout lands on. */
+	--space-slogan-min-h: min(62svh, calc(var(--text-slogan) * 11));
+	/* Reference sets its mark at 71px tall. Ours is a wider 35:25 lockup, so it
+	   matches on height and lands a little wider. */
+	--size-brand-mark: clamp(1.625rem, 2.6vw, 2.125rem);
 	--lh-display: 1.05;
 	--lh-tight: 1.2;
 	--lh-body: 1.5;
+
+	/* Easing. Built-in CSS curves are too weak for UI; these are the project's
+	 * two, and everything animated should reach for one of them. */
+	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+	--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+	/* Overshoot, for things that land rather than appear — the stickers and the
+	 * work windows dropped on an open folder. easeOutBack, off easings.net. */
+	--ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+	/* Folder stack. Values taken from the reference so the covers, lips and
+	 * tabs sit at the same proportions. */
+	--folder-lip: clamp(3.25rem, 5.6vw, 3.75rem);
+	/* Everything printed on a cover sits inside this margin — one value for all
+	 * four sides, so the copy reads as centred on the sheet rather than pushed
+	 * against one edge. */
+	--folder-inset: 3.5rem;
+	--folder-radius: 12px;
+	--folder-overlap: 4px;
+	--folder-shadow: 0 -1px 8px rgb(0 0 0 / 0.15);
+	/* Viewer distance, straight off the reference. Paired with its 3deg tilt this
+	 * gives about a 0.9% size change across the cover — depth you read rather than
+	 * notice. The harsh trapezoid earlier came from the angle, not from this. */
+	/* Close enough for the turn to show. At 4900px a 12.5deg tilt widened the
+	 * cover's leading edge by 3%, which is nothing; here it is nearer 8%, which
+	 * is a folder opening. */
+	--folder-perspective: 3200px;
+	--folder-tilt: -3deg;
+	--folder-ease: cubic-bezier(0.33, 1, 0.68, 1);
+	--folder-duration: 1300ms;
+	/* The reference settles its covers at about 3deg, which reads as barely more
+	 * than a shadow at this width. Opened up to a slope you can actually see
+	 * head-on: a crack on a body hover, ten degrees when the tab is hovered. */
+	/* A hairline of light along the cover's top edge — enough to read the cover
+	 * as a sheet lying on the folder, and nothing more. */
+	--folder-bevel: 0;
+	/* Surface. A macOS folder is not a flat swatch: the light falls on the top
+	 * of the leaf and drains off the bottom, there is a hairline of it caught on
+	 * the very top edge, and the whole thing sits on a soft shadow. Three
+	 * values, used by the stack and by the page transition alike, so a folder
+	 * looks like the same object in both. */
+	/* The stops only. The angle is separate and is set on the surface itself,
+	 * because a light source belongs to the room, not to the thing it is falling
+	 * on: a folder that turns has to keep its lit edge pointing at the top of the
+	 * screen, not carry it round with itself. `var()` inside a value declared at
+	 * `:root` would resolve against `:root`, so the two are composed where they
+	 * are used. */
+	/* A wash, not a ramp. A vertical gradient has to be the same length on every
+	 * piece of the folder or the pieces come out in different tones — and the
+	 * tab is 52px tall where the sheet is 900, so they never could be. This is
+	 * one flat value at both ends: it lightens the stock by the same amount at
+	 * any size and at any angle, so the tab, the sheet and the cover are
+	 * necessarily the same colour, and the turn during the page transition no
+	 * longer drags the light round with it. */
+	--folder-sheen-stops: rgb(255 255 255 / 0.05) 0%, rgb(255 255 255 / 0.05) 100%;
+	--folder-rim: inset 0 1px 0 rgb(255 255 255 / 0.32);
+	/* Two casts. The soft one below is the folder sitting on the page; the tight
+	 * one above is the folder in front throwing onto the one behind it, which is
+	 * the only thing that separates two sheets of the same stock lying on each
+	 * other. */
+	/* One value, used by the sheet and by the tab alike. They are the same edge
+	 * of the same object, so two different casts meeting along the folder's top
+	 * line read as a shadow that breaks there.
+	 *
+	 * Tight and faint — the reference's own figure. This is contact shading
+	 * where a folder stands against the one behind it, not a shadow thrown
+	 * across it: at ten pixels of blur it climbed most of the exposed lip and
+	 * read as dirt on the cover above rather than as the gap between two
+	 * sheets. */
+	--folder-drop: 0 -1px 8px rgb(0 0 0 / 0.15);
+	/* How far the pointed-at cover swings open — and, with it, how far every
+	 * folder in front of it leans back to let it. One angle drives both. */
+	/* One angle. Hovering the cover and hovering its tab open the folder the
+	 * same amount — the two-stage version read as two different interactions on
+	 * one object. */
+	/* Negative: the cover tips away from the viewer, hinged at its foot. Tipping
+	 * it toward the viewer is what a lid actually does, and it reads better —
+	 * but the cover carries `backface-visibility: hidden` so that it disappears
+	 * cleanly when the volume page swings it a full half turn, and coming
+	 * forward it stops painting altogether. Until the fold is rebuilt to turn
+	 * the sheet rather than the cover, this is the direction that renders.
+	 * The camera is brought closer instead, which is what makes the tilt read. */
+	--folder-crack: -12.5deg;
+	--folder-open: -12.5deg;
+	/* Tab title. Its own size rather than --text-meta: the tab is a label on a
+	 * physical thing, and reads at the folder's scale, not the footnote's. */
+	--text-tab: 1.125rem;
+	/* The label on the cover's right edge, and the chevron beside it. */
+	--text-folder-label: 1.125rem;
+	--tab-height: clamp(2.375rem, 4vw, 3.25rem);
+	--tab-aspect: 1.409;
+	/* Reference geometry: covers are bottom-anchored and each folder behind the
+	 * front one stands a lip taller, so the tabs step up the stack.
+	 * The stack block fills the screen, so the frontmost folder — the shortest,
+	 * since every folder behind it stands one lip taller — still runs to the
+	 * bottom edge with nothing below it. `max()` keeps it usable on a short
+	 * laptop window. */
+	--stack-h: max(30rem, calc(100svh - var(--tab-height)));
+	/* The club wordmark printed at the foot of a cover. */
+	--size-club-mark: 0.875rem;
+
+	/* Page transition. The folder leaves the stack, lands in the middle of the
+	 * screen lying on its side, and the volume page picks it up in exactly that
+	 * spot and turns it upright — so both halves have to agree on the size.
+	 * These are the upright measurements; on its side the two swap, which is
+	 * why the height is the one bounded by the viewport's width. */
+	/* As large as the upright folder can stand without running off the top and
+	 * bottom of the screen — that is what bounds the whole transition, because
+	 * the width it flies to becomes the height it stands at. The proportion is
+	 * the stack folder's own, so the flight is a change of scale and nothing
+	 * else. */
+	--stage-h: min(52rem, 90svh, 94vw);
+	--stage-w: calc(var(--stage-h) / 1.42);
+	--stage-perspective: 2400px;
+	/* Where the top of the folder comes to rest during the transition. Enough
+	 * air above it for the navigation to keep its own band, and then some — the
+	 * folder arrives low and what falls past the bottom of the screen falls past
+	 * the bottom of the screen. */
+	--stage-top: 31.25rem;
+}
+
+/* Tablet and below. A folder as tall as the window is right on a wide screen,
+ * where the stack is the whole view; on a narrow one it turns into a long
+ * scroll through an empty coloured field, because the copy printed on the cover
+ * does not grow with the folder. Capped to what the cover actually carries. */
+@media (max-width: 1024px) {
+	:root {
+		--stack-h: min(calc(100svh - var(--tab-height)), 34rem);
+	}
+}
+
+/* Phone and small tablet. The folder is the piece that has to give: its tab
+ * carries two shoulders costing 1.4 tab-heights each, and at 375px the shape
+ * alone is wider than the strip of lip it stands on. Every measurement here
+ * steps down together so the tab, the label and the copy stay in proportion.
+ *
+ * `--tab-aspect` is NOT one of them: the shoulder is an SVG drawn in a 62x44
+ * box, so narrowing its frame only letterboxes the curve inside it and the
+ * shoulder floats free of the label. The width comes off the tab's height. */
+@media (max-width: 720px) {
+	:root {
+		--folder-inset: 1.25rem;
+		--folder-lip: 3rem;
+		--tab-height: 2.25rem;
+		--text-tab: 0.9375rem;
+		--text-folder-label: 1rem;
+		/* 10px tall is ~118px of wordmark; any larger and it runs into the date
+		 * standing on the cover's centre line at 375px. */
+		--size-club-mark: 0.625rem;
+		--stack-h: min(calc(100svh - var(--tab-height)), 28rem);
+		/* The tagline carries the whole first screen, so it is sized against the
+		 * screen's width rather than the desktop curve, which leaves it at 22px
+		 * on a phone — a caption, not an opening line. */
+		--text-slogan: clamp(1.625rem, 7.4vw, 2.75rem);
+	}
+}
+
+/* Small phones. One more step down, because at 320px the tab shape and the
+ * cover's foot both run out of room again. */
+@media (max-width: 400px) {
+	:root {
+		--folder-inset: 1rem;
+		--folder-lip: 2.75rem;
+		--tab-height: 2rem;
+		--text-tab: 0.875rem;
+		--text-folder-label: 0.9375rem;
+		--size-club-mark: 0.5rem;
+	}
 }
 
 *,
@@ -86,6 +308,43 @@ p {
 	margin: 0;
 }
 
+/* Anything that floats over the page is made of the same glass. */
+.glass {
+	background: var(--glass-bg);
+	box-shadow: var(--glass-shadow);
+	backdrop-filter: var(--glass-blur);
+	-webkit-backdrop-filter: var(--glass-blur);
+}
+
+/* Tactile feedback on anything pressable, at the one value that reads as a
+ * press rather than as a jump. */
+.pressable {
+	transition-property: scale, opacity, background-color;
+	transition-duration: 150ms;
+	transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.pressable:active {
+	scale: 0.96;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pressable {
+		transition-property: opacity, background-color;
+	}
+
+	.pressable:active {
+		scale: 1;
+	}
+}
+
+/* Selection. The iOS shape — a tinted run with a bar and a knob at each end —
+ * in the site's own colour. The tint is CSS; the bars are drawn by
+ * SelectionHandles, because no browser gives them to a pointer device. */
+::selection {
+	background: color-mix(in srgb, var(--color-select) 32%, transparent);
+}
+
 .visually-hidden {
 	position: absolute;
 	width: 1px;
@@ -97,3 +356,4 @@ p {
 	white-space: nowrap;
 	border: 0;
 }
+

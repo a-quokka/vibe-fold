@@ -1,0 +1,455 @@
+---
+/** The guestbook.
+ *
+ *  Pick out a line, choose 방명록 쓰기, and write something. What you write is
+ *  pinned to the spot you picked, as a number. Press a number and the note
+ *  comes back as a message on the left of the screen; it stays five seconds and
+ *  goes, the way a notification does.
+ *
+ *  Notes live in this browser only — `localStorage`, keyed by the page they
+ *  were left on. There is no server behind this yet, so nobody else sees them.
+ */
+---
+
+<div class="guestbook" data-guestbook>
+	{/* Where the notes are pinned. Page coordinates, so a pin stays on the words
+	    it belongs to however far the page is scrolled. */}
+	<div class="guestbook__pins" data-guestbook-pins></div>
+
+	{/* Where a note comes back. Stacked down the leading edge, newest last. */}
+	<div class="guestbook__messages" data-guestbook-messages></div>
+
+	{/* The composer. Toolbar over the field, as the notes app has it. */}
+	<form class="composer glass" data-guestbook-composer hidden>
+		<header class="composer__bar">
+			<p class="composer__title">방명록</p>
+			<button class="composer__close pressable" type="button" data-guestbook-cancel aria-label="닫기">
+				<svg viewBox="0 0 24 24" aria-hidden="true">
+					<path
+						d="m7 7 10 10M17 7 7 17"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.75"
+						stroke-linecap="round"
+					/>
+				</svg>
+			</button>
+		</header>
+
+		<textarea
+			class="composer__field"
+			data-guestbook-field
+			rows="3"
+			maxlength="280"
+			placeholder="남기고 싶은 말을 적어 주세요"
+		></textarea>
+
+		<button class="composer__submit pressable" type="submit" data-guestbook-done>완료</button>
+
+		<p class="composer__toast glass" data-guestbook-toast hidden>입력된 내용이 없어요</p>
+	</form>
+</div>
+
+<style>
+	.guestbook__pins,
+	.guestbook__messages {
+		position: absolute;
+		inset: 0 auto auto 0;
+	}
+
+	/* The pin: the note's number, in pink, standing at the first point of the
+	   words it was left on — a footnote mark rather than a badge.
+
+	   Global, with the rest of what the script builds: Astro scopes a
+	   component's CSS to the elements it renders, and an element made in script
+	   carries none of that. */
+	:global(.gb-pin) {
+		position: absolute;
+		z-index: 60;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--color-select);
+		font-family: inherit;
+		font-size: 1.125rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+		cursor: pointer;
+		/* Centred on the point the leading grip's knob stands on, so the number
+		   lands exactly where the selection began. */
+		translate: -50% -50%;
+		transition-property: scale;
+		transition-duration: 150ms;
+		transition-timing-function: var(--ease-out);
+	}
+
+	:global(.gb-pin:hover) {
+		scale: 1.15;
+	}
+
+	:global(.gb-pin:active) {
+		scale: 0.95;
+	}
+
+	/* The message. Same glass as the selection callout, with the tail a message
+	   bubble has, stacked down the leading edge of the screen. */
+	.guestbook__messages {
+		position: fixed;
+		top: calc(var(--h-header) + 0.5rem);
+		left: var(--page-pad);
+		/* Under the bar: the messages stack below it and never need to cross it. */
+		z-index: 70;
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
+		width: min(20rem, calc(100vw - 2 * var(--page-pad)));
+		pointer-events: none;
+	}
+
+	:global(.gb-message) {
+		position: relative;
+		display: flex;
+		align-items: flex-start;
+		gap: 0.625rem;
+		padding: 0.75rem 0.9375rem;
+		border-radius: 1.125rem 1.125rem 1.125rem 0.25rem;
+		background: var(--glass-bg);
+		color: var(--color-text);
+		font-size: var(--text-body);
+		line-height: var(--lh-body);
+		box-shadow: var(--glass-shadow);
+		backdrop-filter: var(--glass-blur);
+		-webkit-backdrop-filter: var(--glass-blur);
+		animation: message-in 320ms var(--ease-out) both;
+	}
+
+	:global(.gb-message[data-leaving='true']) {
+		animation: message-out 260ms var(--ease-out) both;
+	}
+
+	:global(.gb-message__number) {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 1.375rem;
+		height: 1.375rem;
+		border-radius: 50%;
+		background: var(--color-select);
+		color: #ffffff;
+		font-size: 0.75rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+	}
+
+	:global(.gb-message__text) {
+		margin: 0;
+		overflow-wrap: anywhere;
+	}
+
+	@keyframes message-in {
+		from {
+			opacity: 0;
+			translate: -12px 0;
+		}
+	}
+
+	@keyframes message-out {
+		to {
+			opacity: 0;
+			translate: -12px 0;
+		}
+	}
+
+	/* The composer. */
+	.composer {
+		position: fixed;
+		bottom: clamp(1rem, 3vw, 2rem);
+		left: 50%;
+		/* Over the bar: it is a sheet the visitor opened, and it takes the focus
+		   with it. */
+		z-index: 120;
+		display: flex;
+		flex-direction: column;
+		width: min(34rem, calc(100vw - 2rem));
+		border-radius: 1.125rem;
+		translate: -50% 0;
+		animation: composer-in 260ms var(--ease-out) both;
+	}
+
+	.composer[hidden] {
+		display: none;
+	}
+
+	@keyframes composer-in {
+		from {
+			opacity: 0;
+			translate: -50% 12px;
+		}
+	}
+
+	.composer__bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.75rem 0.75rem 0 1rem;
+	}
+
+	.composer__title {
+		margin: 0;
+		color: #ffffff;
+		font-size: var(--text-body);
+		font-weight: 600;
+		line-height: 1.2;
+	}
+
+	/* Close is a mark, not a word — it is the one thing here that is not the
+	   note being written. */
+	.composer__close {
+		display: grid;
+		place-items: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: rgb(255 255 255 / 0.12);
+		color: #ffffff;
+		cursor: pointer;
+	}
+
+	.composer__close svg {
+		width: 1rem;
+		height: 1rem;
+	}
+
+	.composer__close:hover {
+		background: rgb(255 255 255 / 0.22);
+	}
+
+	/* No box at all — the note is written straight onto the glass, in white. The
+	   field is the only thing in the sheet that takes typing, so there is nothing
+	   for a rule to tell it apart from. */
+	.composer__field {
+		margin: 0.75rem 0.75rem 0;
+		padding: 0.25rem 0.25rem 0;
+		border: 0;
+		background: transparent;
+		color: #ffffff;
+		font-family: inherit;
+		font-size: var(--text-body);
+		line-height: var(--lh-body);
+		resize: none;
+	}
+
+	.composer__field:focus {
+		outline: none;
+	}
+
+	.composer__field::placeholder {
+		color: rgb(255 255 255 / 0.45);
+	}
+
+	/* The one action, across the foot. */
+	.composer__submit {
+		margin: 0.75rem;
+		padding: 0.875rem;
+		border: 0;
+		border-radius: 0.75rem;
+		background: var(--color-select);
+		color: #ffffff;
+		font-family: inherit;
+		font-size: var(--text-body);
+		font-weight: 600;
+		line-height: 1.2;
+		cursor: pointer;
+	}
+
+	.composer__submit:hover {
+		opacity: 0.88;
+	}
+
+	/* Says what went wrong where the thing that went wrong is, and goes on its
+	   own — there is nothing to answer. */
+	.composer__toast {
+		position: absolute;
+		bottom: 100%;
+		left: 50%;
+		margin: 0 0 0.625rem;
+		padding: 0.5rem 0.875rem;
+		border-radius: 999px;
+		color: var(--color-text);
+		font-size: var(--text-meta);
+		line-height: 1.2;
+		white-space: nowrap;
+		translate: -50% 0;
+		animation: message-in 260ms var(--ease-out) both;
+	}
+
+	.composer__toast[hidden] {
+		display: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:global(.gb-message),
+		:global(.gb-message[data-leaving='true']),
+		.composer {
+			animation: none;
+		}
+
+		:global(.gb-pin) {
+			transition: none;
+		}
+	}
+</style>
+
+<script>
+	type Note = { id: string; number: number; text: string; x: number; y: number; at: number };
+
+	const pins = document.querySelector<HTMLElement>('[data-guestbook-pins]');
+	const messages = document.querySelector<HTMLElement>('[data-guestbook-messages]');
+	const composer = document.querySelector<HTMLFormElement>('[data-guestbook-composer]');
+	const field = document.querySelector<HTMLTextAreaElement>('[data-guestbook-field]');
+	const done = document.querySelector<HTMLButtonElement>('[data-guestbook-done]');
+	const cancel = document.querySelector<HTMLButtonElement>('[data-guestbook-cancel]');
+	const toast = document.querySelector<HTMLElement>('[data-guestbook-toast]');
+
+	if (pins && messages && composer && field && done && cancel) {
+		/** Notes are kept per page: a note is about the words it was left on. The
+		 *  version in the key retires everything written before the numbers moved
+		 *  to the end of the selection — those notes point at the wrong spot. */
+		const PAGE = location.pathname.replace(/\/+$/, '') || '/';
+		const KEY = `vibe-fold:guestbook:v3:${PAGE}`;
+
+		// Every earlier round of notes is retired with its key: they were written
+		// against numbers that stood somewhere else.
+		try {
+			localStorage.removeItem(`vibe-fold:guestbook:${PAGE}`);
+			localStorage.removeItem(`vibe-fold:guestbook:v2:${PAGE}`);
+		} catch {
+			// Nothing to clear if storage is not there to begin with.
+		}
+
+		const read = (): Note[] => {
+			try {
+				const raw = localStorage.getItem(KEY);
+				return raw ? (JSON.parse(raw) as Note[]) : [];
+			} catch {
+				return [];
+			}
+		};
+
+		const write = (notes: Note[]) => {
+			try {
+				localStorage.setItem(KEY, JSON.stringify(notes));
+			} catch {
+				// Private browsing: the note lives as long as the page does.
+			}
+		};
+
+		let notes = read();
+		/** Where the note being written belongs, taken from the selection that
+		 *  opened the composer. */
+		let anchor = { x: 0, y: 0 };
+
+		const show = (note: Note) => {
+			const bubble = document.createElement('div');
+			bubble.className = 'gb-message';
+			bubble.innerHTML = `<span class="gb-message__number"></span><p class="gb-message__text"></p>`;
+			bubble.querySelector('.gb-message__number')!.textContent = String(note.number);
+			bubble.querySelector('.gb-message__text')!.textContent = note.text;
+			messages.appendChild(bubble);
+
+			// Five seconds, then out — a note is a passing remark, not a fixture.
+			window.setTimeout(() => {
+				bubble.dataset.leaving = 'true';
+				bubble.addEventListener('animationend', () => bubble.remove(), { once: true });
+				// A reduced-motion visitor gets no animation to end on.
+				window.setTimeout(() => bubble.remove(), 400);
+			}, 5000);
+		};
+
+		const drop = (note: Note) => {
+			const pin = document.createElement('button');
+			pin.type = 'button';
+			pin.className = 'gb-pin';
+			pin.style.left = `${note.x}px`;
+			pin.style.top = `${note.y}px`;
+			pin.textContent = String(note.number);
+			pin.setAttribute('aria-label', `방명록 ${note.number}번 보기`);
+			pin.addEventListener('click', () => show(note));
+			pins.appendChild(pin);
+		};
+
+		notes.forEach(drop);
+
+		let toastTimer = 0;
+
+		/** The one thing that can go wrong here: nothing was written. */
+		const complain = () => {
+			if (!toast) return;
+			toast.hidden = false;
+			window.clearTimeout(toastTimer);
+			toastTimer = window.setTimeout(() => {
+				toast.hidden = true;
+			}, 2000);
+		};
+
+		const close = () => {
+			composer.hidden = true;
+			field.value = '';
+			if (toast) toast.hidden = true;
+		};
+
+		const open = (detail: { x: number; y: number }) => {
+			anchor = { x: detail.x, y: detail.y };
+			composer.hidden = false;
+			field.focus();
+		};
+
+		window.addEventListener('vibe-fold:guestbook', (event) => {
+			const detail = (event as CustomEvent).detail ?? {};
+			open({ x: detail.x ?? 0, y: detail.y ?? 0 });
+		});
+
+		field.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') close();
+			// Enter finishes the note; a new line takes a modifier, as a chat field
+			// works.
+			if (event.key === 'Enter' && !event.shiftKey) {
+				event.preventDefault();
+				composer.requestSubmit();
+			}
+		});
+
+		cancel.addEventListener('click', close);
+
+		composer.addEventListener('submit', (event) => {
+			event.preventDefault();
+
+			const text = field.value.trim();
+			if (!text) {
+				complain();
+				field.focus();
+				return;
+			}
+
+			const note: Note = {
+				id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+				number: notes.length + 1,
+				text,
+				x: anchor.x,
+				y: anchor.y,
+				at: Date.now(),
+			};
+
+			notes = [...notes, note];
+			write(notes);
+			drop(note);
+			show(note);
+			close();
+		});
+	}
+</script>

@@ -1,0 +1,202 @@
+---
+/** Home → volume, the first half of the transition.
+ *
+ *  Clicking a folder does not navigate straight away. The stack clears itself
+ *  out of the way and the chosen folder takes the tagline's place in the middle
+ *  of the screen, lying on its side. Only then does the page change — and the
+ *  volume page opens with that same folder in that same spot, so the two halves
+ *  read as one move rather than as a cut.
+ *
+ *  The folder that flies is a copy, not the folder itself. The stack sits in a
+ *  clipped section under a shared `perspective`, and an element with perspective
+ *  is a containing block for its fixed-position descendants: the real folder
+ *  cannot leave that box. The copy is appended to the body, where the viewport
+ *  is the only frame it answers to.
+ */
+---
+
+<script>
+	import { gsap } from 'gsap';
+
+	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+	const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+
+	/** One flight at a time. The label and the tab both sit above the cover's
+	 *  link, so a single press can surface as more than one click on the way up. */
+	let flying = false;
+
+	/** What the volume page needs to pick the folder up where this page put it
+	 *  down: the size it is holding when the screen changes. */
+	const HANDOFF = 'vibe-fold:handoff';
+
+	/** A length written in CSS, measured rather than parsed — both halves of the
+	 *  transition read their geometry from the same custom properties. */
+	function cssLength(property: string): number {
+		const probe = document.createElement('div');
+		probe.style.cssText = `position:fixed;left:0;top:0;width:0;height:var(${property});visibility:hidden;pointer-events:none`;
+		document.body.appendChild(probe);
+		const { height } = probe.getBoundingClientRect();
+		probe.remove();
+		return height;
+	}
+
+	/** The states the stack writes on a folder while it is being pointed at.
+	 *  The copy has to leave without any of them. */
+	const HOVER_STATE = ['open', 'peek', 'shifted', 'peekShifted', 'revealed', 'pushed', 'front'];
+
+	function fly(folder: HTMLElement, href: string) {
+		const stack = folder.parentElement;
+		if (!stack) return;
+
+		const others = Array.from(stack.querySelectorAll<HTMLElement>('.folder')).filter(
+			(other) => other !== folder,
+		);
+		const from = folder.getBoundingClientRect();
+		// The folder crosses at the size it already is. It has to give some of
+		// that back to stand upright — a folder as wide as this one is taller
+		// than the screen once it is turned — but that belongs to the turn, on
+		// the other side, where it reads as the folder settling into place
+		// rather than as the page shrinking it on the way out.
+		const to = {
+			width: from.width,
+			height: from.height,
+			left: (window.innerWidth - from.width) / 2,
+			// Not centred: hung from the top, with the navigation's band left
+			// clear above it. What hangs below the screen hangs below the screen.
+			top: cssLength('--stage-top'),
+		};
+
+		try {
+			sessionStorage.setItem(
+				HANDOFF,
+				JSON.stringify({
+					id: folder.dataset.flipId ?? '',
+					width: from.width,
+					height: from.height,
+					at: Date.now(),
+				}),
+			);
+		} catch {
+			// Private browsing: the volume page simply opens at its own size.
+		}
+
+		const proxy = folder.cloneNode(true) as HTMLElement;
+		HOVER_STATE.forEach((key) => delete proxy.dataset[key]);
+		proxy.dataset.flightProxy = 'true';
+		proxy.style.cssText += `
+			position: fixed;
+			left: ${from.left}px;
+			top: ${from.top}px;
+			width: ${from.width}px;
+			height: ${from.height}px;
+			margin: 0;
+			z-index: 40;
+			transform: none;
+			translate: none;
+			transition: none;
+			pointer-events: none;
+		`;
+		document.body.appendChild(proxy);
+		folder.style.visibility = 'hidden';
+
+		// The stack's own transitions run at 1300ms. Left in place they would lag
+		// a frame behind every value the timeline writes.
+		others.forEach((other) => {
+			other.style.transition = 'none';
+		});
+
+		const timeline = gsap.timeline({
+			onComplete: () => {
+				window.location.href = href;
+			},
+		});
+
+		// 1. Everything else leaves. The folders drop out of the bottom of the
+		//    stack — the section clips them — and the tagline fades off the top.
+		timeline
+			.to(
+				others,
+				{
+					y: () => window.innerHeight,
+					duration: 0.72,
+					ease: 'power2.in',
+					stagger: 0.06,
+				},
+				0,
+			)
+			.to('.slogan', { opacity: 0, y: -32, duration: 0.5, ease: 'power2.in' }, 0)
+			// What is printed on the cover goes early: the sheet is about to change
+			// shape under it, and copy reflowing mid-flight is the one thing that
+			// gives the move away as a resize.
+			.to(
+				proxy.querySelectorAll('.folder__summary, .folder__colophon, .folder__heading'),
+				{ opacity: 0, duration: 0.28, ease: 'power2.out' },
+				0,
+			)
+			// 2. The folder takes the tagline's place — moving, not resizing.
+			.to(
+				proxy,
+				{
+					left: to.left,
+					top: to.top,
+					duration: 0.86,
+					ease: 'power3.inOut',
+				},
+				0.14,
+			);
+	}
+
+	/** Coming back with the back button can hand the page back exactly as it was
+	 *  left — mid-flight, with the stack cleared away and a copy of a folder
+	 *  parked in the middle of the screen. Put it back. */
+	window.addEventListener('pageshow', (event) => {
+		if (!event.persisted) return;
+
+		flying = false;
+		gsap.killTweensOf('*');
+		document.querySelectorAll('[data-flight-proxy]').forEach((proxy) => proxy.remove());
+		document.querySelectorAll<HTMLElement>('.folder-stack .folder').forEach((folder) => {
+			folder.style.visibility = '';
+			folder.style.transition = '';
+			gsap.set(folder, { clearProps: 'transform' });
+		});
+		gsap.set('.slogan', { clearProps: 'opacity,transform' });
+	});
+
+	/** The whole folder is the trigger — the cover, the copy printed on it, the
+	 *  label, the tab. The link that covers the folder is underneath the cover in
+	 *  the stacking order and never sees a press of its own, so the folder is
+	 *  read off the event and the link only asked where it goes.
+	 */
+	document.addEventListener('click', (event) => {
+		if (flying) return;
+
+		const target = event.target as HTMLElement | null;
+		if (!target?.closest) return;
+
+		// On touch the tab is how a folder is opened, not how it is left.
+		if (!finePointer.matches && target.closest('.tab')) return;
+
+		const folder = target.closest<HTMLElement>('.folder');
+		if (!folder || folder.dataset.flightProxy === 'true') return;
+
+		const link = folder.querySelector<HTMLAnchorElement>('.folder__page');
+		if (!link) return;
+
+		// A modified click is a request for a new tab, not for this.
+		const mouse = event as MouseEvent;
+		if (mouse.metaKey || mouse.ctrlKey || mouse.shiftKey || mouse.altKey || mouse.button !== 0) {
+			return;
+		}
+
+		event.preventDefault();
+
+		if (reduced.matches) {
+			window.location.href = link.href;
+			return;
+		}
+
+		flying = true;
+		fly(folder, link.href);
+	});
+</script>

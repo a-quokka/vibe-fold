@@ -1,0 +1,308 @@
+---
+/** iOS-style selection handles.
+ *
+ *  A touch device draws these itself — a bar at each end of the selection with
+ *  a knob on it — and a desktop browser draws nothing at all. This puts them on
+ *  the pointer devices that are missing them, in the site's own colour.
+ *
+ *  Only on mouse devices, for exactly that reason: on a phone the platform's
+ *  own handles are already there, and these would sit next to them as a second
+ *  pair that does nothing when dragged.
+ */
+---
+
+<div class="selection" data-selection aria-hidden="true" hidden>
+	<span class="selection__grip selection__grip--start" data-selection-start>
+		<span class="selection__knob"></span>
+	</span>
+	<span class="selection__grip selection__grip--end" data-selection-end>
+		<span class="selection__knob"></span>
+	</span>
+
+	{/* The callout the platform puts over a selection. One thing to do with the
+	    words you picked out, which is the only thing there is to do with them. */}
+	<div class="selection__menu glass" data-selection-menu hidden>
+		<button class="selection__action pressable" type="button" data-selection-guestbook>
+			방명록 쓰기
+		</button>
+	</div>
+
+	{/* The tail is a sibling of the callout, not part of it: a backdrop filter
+	    inside another backdrop filter takes the outer one's output as its
+	    backdrop, so a tail drawn as the menu's own pseudo-element frosts a
+	    different thing and comes out a different colour. */}
+	<span class="selection__tail glass" data-selection-tail hidden></span>
+</div>
+
+<style>
+	.selection {
+		position: fixed;
+		inset: 0;
+		z-index: 200;
+		/* A drawing of the selection, not part of it. */
+		pointer-events: none;
+	}
+
+	.selection[hidden] {
+		display: none;
+	}
+
+	.selection__grip {
+		position: fixed;
+		width: 2px;
+		background: var(--color-select);
+		border-radius: 1px;
+	}
+
+	.selection__knob {
+		position: absolute;
+		left: 50%;
+		width: 0.6875rem;
+		height: 0.6875rem;
+		border-radius: 50%;
+		background: var(--color-select);
+	}
+
+	/* Glass: a pane of frosted white over whatever it is standing on, with the
+	   hairline rim and the soft drop that keep it off the page. */
+	.selection__menu {
+		position: fixed;
+		z-index: 1;
+		display: flex;
+		padding: 0.1875rem;
+		border-radius: 0.75rem;
+		/* Material comes from `.glass`. Dark rather than white, because the
+		   callout has to stay readable over the dark ground and over the cream
+		   paper both — which is what the platform itself puts up in either
+		   case. */
+		/* The layer above it is a drawing; this one is a control. */
+		pointer-events: auto;
+	}
+
+	.selection__menu[hidden] {
+		display: none;
+	}
+
+	/* The tail, pointing down at the words it belongs to. Same material and the
+	   same backdrop as the callout, because it stands beside it rather than
+	   inside it. */
+	.selection__tail {
+		position: fixed;
+		width: 16px;
+		height: 8px;
+		/* No rim or glow on the tail: those are edge treatments, and this edge is
+		   the callout's, not its own. */
+		box-shadow: none;
+		clip-path: polygon(0 0, 100% 0, 50% 100%);
+		translate: -50% 0;
+	}
+
+	.selection__tail[hidden] {
+		display: none;
+	}
+
+	.selection__tail[data-flipped='true'] {
+		clip-path: polygon(50% 0, 100% 100%, 0 100%);
+	}
+
+	.selection__action {
+		padding: 0.4375rem 0.9375rem;
+		border: 0;
+		border-radius: 0.5625rem;
+		background: none;
+		color: var(--color-text);
+		font-family: inherit;
+		font-size: 0.875rem;
+		font-weight: 500;
+		line-height: 1.2;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+
+	.selection__action:hover {
+		background: rgb(255 255 255 / 0.12);
+	}
+
+	.selection__action:active {
+		background: rgb(255 255 255 / 0.2);
+	}
+
+	/* The knob sits above the bar at the head of a selection and below it at the
+	   tail — the way the two ends of a selection are told apart on iOS. */
+	.selection__grip--start .selection__knob {
+		top: 0;
+		translate: -50% -50%;
+	}
+
+	.selection__grip--end .selection__knob {
+		bottom: 0;
+		translate: -50% 50%;
+	}
+</style>
+
+<script>
+	const layer = document.querySelector<HTMLElement>('[data-selection]');
+	const start = document.querySelector<HTMLElement>('[data-selection-start]');
+	const end = document.querySelector<HTMLElement>('[data-selection-end]');
+	const menu = document.querySelector<HTMLElement>('[data-selection-menu]');
+	const tail = document.querySelector<HTMLElement>('[data-selection-tail]');
+	const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+
+	if (layer && start && end && menu && tail) {
+		const place = (grip: HTMLElement, x: number, top: number, height: number) => {
+			grip.style.left = `${x}px`;
+			grip.style.top = `${top}px`;
+			grip.style.height = `${height}px`;
+		};
+
+		const hideMenu = () => {
+			menu.hidden = true;
+			tail.hidden = true;
+		};
+
+		/** Over the middle of the selection, clear of it, tail down. Flipped under
+		 *  it when the selection starts too near the top of the window for the
+		 *  callout to stand above it. */
+		const placeMenu = (bounds: DOMRect) => {
+			menu.hidden = false;
+			menu.removeAttribute('data-flipped');
+
+			const box = menu.getBoundingClientRect();
+			const gap = 10;
+			const flipped = bounds.top - box.height - gap < 8;
+
+			if (flipped) menu.dataset.flipped = 'true';
+
+			const centre = bounds.left + bounds.width / 2;
+			const left = Math.min(
+				Math.max(8, centre - box.width / 2),
+				window.innerWidth - box.width - 8,
+			);
+			const top = flipped ? bounds.bottom + gap : bounds.top - box.height - gap;
+
+			menu.style.left = `${left}px`;
+			menu.style.top = `${top}px`;
+
+			// The tail keeps to the callout's middle, which is where it reads as
+			// part of it — not to the selection's, which the callout may have had
+			// to step away from at the edge of the window.
+			tail.hidden = false;
+			tail.toggleAttribute('data-flipped', flipped);
+			tail.style.left = `${left + box.width / 2}px`;
+			tail.style.top = `${flipped ? top - 8 : top + box.height}px`;
+		};
+
+		/** Shown when a selection is finished, the way a platform callout is —
+		 *  never while the pointer is still drawing one. */
+		const offerMenu = () => {
+			if (!finePointer.matches) return;
+
+			const selection = document.getSelection();
+			if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+				hideMenu();
+				return;
+			}
+
+			const bounds = selection.getRangeAt(0).getBoundingClientRect();
+			if (bounds.width === 0 && bounds.height === 0) {
+				hideMenu();
+				return;
+			}
+
+			placeMenu(bounds);
+		};
+
+		const update = () => {
+			if (!finePointer.matches) {
+				layer.hidden = true;
+				hideMenu();
+				return;
+			}
+
+			const selection = document.getSelection();
+			if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+				layer.hidden = true;
+				hideMenu();
+				return;
+			}
+
+			// A selection across lines reports one rect per line; the ends of the
+			// run are the first rect's leading edge and the last rect's trailing
+			// one. Empty rects come from collapsed nodes in between.
+			const rects = Array.from(selection.getRangeAt(0).getClientRects()).filter(
+				(rect) => rect.width > 0 || rect.height > 0,
+			);
+			if (rects.length === 0) {
+				layer.hidden = true;
+				return;
+			}
+
+			const first = rects[0];
+			const last = rects[rects.length - 1];
+
+			place(start, first.left - 1, first.top, first.height);
+			place(end, last.right - 1, last.top, last.height);
+			layer.hidden = false;
+		};
+
+		document.addEventListener('selectionchange', update);
+		// The grips are positioned against the viewport, so anything that moves
+		// the text under them has to move them too.
+		window.addEventListener('scroll', () => {
+			update();
+			offerMenu();
+		}, true);
+		window.addEventListener('resize', () => {
+			update();
+			offerMenu();
+		});
+		finePointer.addEventListener('change', update);
+
+		// A press anywhere else puts the callout away — including the press that
+		// starts the next selection.
+		document.addEventListener('pointerdown', (event) => {
+			if (menu.contains(event.target as Node)) return;
+			hideMenu();
+		});
+
+		// And a release offers it again, once the selection has stopped moving.
+		document.addEventListener('pointerup', () => {
+			// After the pointer is up the selection is settled; a frame's wait
+			// keeps the measurement out of the same tick that made it.
+			requestAnimationFrame(offerMenu);
+		});
+		document.addEventListener('keyup', (event) => {
+			if (event.shiftKey || event.key.startsWith('Arrow')) offerMenu();
+		});
+
+		menu.querySelector('[data-selection-guestbook]')?.addEventListener('click', () => {
+			const selection = document.getSelection();
+			const text = selection?.toString().trim() ?? '';
+
+			// Page coordinates, not viewport ones: the note is pinned to the words,
+			// and the words stay where they are when the page scrolls.
+			// The first point of the selection — where the words begin, which is
+			// where a mark on them belongs. The first rect is the first line.
+			let anchor = { x: 0, y: 0 };
+			if (selection && selection.rangeCount > 0) {
+				const rects = Array.from(selection.getRangeAt(0).getClientRects()).filter(
+					(rect) => rect.width > 0 || rect.height > 0,
+				);
+				// The top of the bar at the far end of the selection — the trailing
+				// grip stands on the last line's trailing edge, and the number is
+				// set at the head of it.
+				const last = rects[rects.length - 1] ?? selection.getRangeAt(0).getBoundingClientRect();
+				anchor = {
+					x: last.right + window.scrollX,
+					y: last.top + window.scrollY,
+				};
+			}
+
+			window.dispatchEvent(
+				new CustomEvent('vibe-fold:guestbook', { detail: { text, ...anchor } }),
+			);
+			hideMenu();
+			selection?.removeAllRanges();
+		});
+	}
+</script>

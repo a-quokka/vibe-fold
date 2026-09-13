@@ -1,0 +1,811 @@
+---
+import type { Volume } from '../lib/content';
+import { formatVolLabel, formatVolumeDate, volumeHref } from '../lib/content';
+import ClubMark from './ClubMark.astro';
+import { swatchAt } from '../lib/palette';
+
+interface Props {
+	volumes: Volume[];
+	id?: string;
+}
+
+const { volumes, id } = Astro.props;
+
+const folders = volumes.map((volume, index) => ({
+	volume,
+	swatch: swatchAt(index),
+}));
+
+---
+
+<section class="folders" id={id} aria-label="Volumes">
+	<ul class="folder-stack" style={`--folder-count: ${folders.length};`}>
+		{
+			folders.map(({ volume, swatch }, index) => {
+				const title = `${formatVolLabel(volume.number)} ${volume.title}`;
+
+				return (
+					<li
+						class="folder"
+						data-folder
+						data-flip-id={`folder-${volume.volId}`}
+						style={`--folder-color: ${swatch.bg}; --folder-ink: ${swatch.ink}; --folder-depth: ${index};`}
+					>
+						{/* One tab per folder, carrying the theme. Hovering it opens the
+						    folder; it is not a control, so it takes no clicks and no
+						    focus — the cover behind it is the link. */}
+						<div class="folder__tabs" aria-hidden="true">
+							<span class="tab" data-flip-id={`tab-${volume.volId}`}>
+								<span class="tab__shoulder tab__shoulder--start"></span>
+								<span class="tab__label">{title}</span>
+								<span class="tab__shoulder tab__shoulder--end"></span>
+							</span>
+						</div>
+
+						{volume.status === 'published' && (
+							<a class="folder__page" href={volumeHref(volume.volId)}>
+								<span class="visually-hidden">{`Open ${title}`}</span>
+							</a>
+						)}
+
+						{/* The reference puts its unfold trigger in the right-hand strip of
+						    the lip, which is why the category label lives there too. */}
+						<div class="folder__hinge">
+						<div class="folder__front">
+						<h3 class="folder__heading">
+							<span class="folder__unfold">
+								{/* The reference's text button. Hovering it pushes every folder
+								    standing in front of this one down the stack, so this
+								    folder's copy comes into the open. */}
+								<span class="folder__button" data-unfold>
+									<span class="folder__title">{volume.title}</span>
+									<svg class="folder__chevron" viewBox="0 0 24 24" aria-hidden="true">
+										<path
+											d="M5 9.5 12 16l7-6.5"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="1.5"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								</span>
+							</span>
+						</h3>
+
+						{/* Printed on the cover itself, as in the reference — not revealed
+						    on hover. Only the folder whose face is uncovered shows it;
+						    the rest are hidden behind the folders standing in front. */}
+						<div class="folder__summary">
+							{volume.summary
+								.split(/\n\s*\n/)
+								.map((paragraph) => paragraph.trim())
+								.filter(Boolean)
+								.map((paragraph) => (
+									<p>
+										{/* One sentence per line. A sentence too long for the
+										    cover still wraps, but it never shares a line with
+										    the next one. */}
+										{paragraph
+											.split(/(?<=[.!?])\s+/)
+											.map((sentence) => sentence.trim())
+											.filter(Boolean)
+											.map((sentence) => <span class="folder__line">{sentence}</span>)}
+									</p>
+								))}
+						</div>
+
+						{/* Foot of the cover, as in the reference: the volume's date in
+						    the middle, the club's wordmark on the trailing edge. Only
+						    the frontmost folder's foot is on screen — the rest sit
+						    behind the folders standing in front of them. */}
+						<div class="folder__colophon" aria-hidden="true">
+							<span class="folder__date">{formatVolumeDate(volume.date)}</span>
+							<ClubMark />
+						</div>
+						</div>
+						</div>
+					</li>
+				);
+			})
+		}
+	</ul>
+</section>
+
+<style>
+	.folders {
+		padding: var(--space-archive-y) var(--page-pad) 0;
+		/* The folders pushed down the stack travel past the bottom of the section.
+		   Left unclipped that counts as scrollable overflow and the page grows a
+		   screenful every time a label is hovered. `clip` keeps the section from
+		   becoming a scroller of its own; the tabs stand inside the padding box,
+		   so nothing that should be seen is cut. */
+		overflow: clip;
+	}
+
+	/* Covers are bottom-anchored inside a fixed-height stack, exactly as in the
+	   reference: the frontmost is --stack-h tall and every cover behind it adds
+	   one lip, so the stack reads as sheets standing in a drawer. */
+	.folder-stack {
+		position: relative;
+		/* Fixed height, as in the reference: the stack always occupies the same
+		   block and opening a folder only moves the covers in front of it. The
+		   works live on the volume page now, so nothing is exposed by leaving
+		   the frontmost folder's summary on show. */
+		height: var(--stack-h);
+		/* Room for the tabs standing on the backmost cover. */
+		margin: var(--tab-height) 0 0;
+		padding: 0;
+		list-style: none;
+		/* One vanishing point for the whole drawer. Per-folder perspective gave
+		   each folder its own, so their tilts never lined up. */
+		perspective: var(--folder-perspective);
+		perspective-origin: 50% 0%;
+	}
+
+	.folder {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		height: calc(var(--stack-h) - var(--folder-lip) * var(--folder-depth));
+		z-index: calc(var(--folder-depth) + 1);
+		/* Same stock as the cover. What darkens the strip that opens above the
+		   cover is the shadow the cover throws onto it — see .folder__front. A
+		   gradient painted here instead floats free of the thing casting it. */
+		background:
+			linear-gradient(var(--sheen-angle), var(--folder-sheen-stops)),
+			var(--folder-color);
+		/* The inner sheet — the leaf the tab is fixed to. It lies back with the
+		   cover, carrying the tab with it. */
+		transform-origin: bottom center;
+		transform-style: preserve-3d;
+		transition-property: transform, translate;
+		transition-duration: var(--folder-duration);
+		transition-timing-function: var(--folder-ease);
+		/* Top corners only. A fully rounded box reads as a card; rounding just
+		   the top is what makes it read as a folder standing in a drawer. */
+		border-radius: var(--folder-radius) var(--folder-radius) 0 0;
+		color: var(--folder-ink);
+		transform-origin: center bottom;
+		transform-style: preserve-3d;
+		/* No height transition here: GSAP Flip drives the fold with scaleY and
+		   counter-scales the children, which stays on the GPU. A height
+		   transition would relayout the stack every frame. */
+	}
+
+	/* The front leaf. A folder is two leaves sharing a fold at the bottom: this
+	   is the one facing the room, and it tips back about that fold. The folder
+	   behind it is a shade darker, so the gap that opens reads as the inside of
+	   the folder rather than as a bar someone drew on top.
+
+	   `rotateX` on a bottom hinge, not a height change: the cover has to turn in
+	   space for the gap to look like a gap. The parent's perspective is what
+	   makes the turn read at all. */
+	/* `perspective` on .folder reaches its direct children only. Without this the
+	   wrapper flattens the 3D context and the cover rotates with no foreshortening
+	   at all — a tilt with no depth, which is what made the fold disappear. */
+	.folder__hinge {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		transform-style: preserve-3d;
+	}
+
+	.folder__front {
+		position: absolute;
+		inset: 0;
+		background:
+			linear-gradient(var(--sheen-angle), var(--folder-sheen-stops)),
+			var(--folder-color);
+		border-radius: var(--folder-radius) var(--folder-radius) 0 0;
+		transform-origin: bottom center;
+		transform-style: preserve-3d;
+		backface-visibility: hidden;
+		/* Thrown up onto the strip the tilt uncovers, and only while tilted —
+		   a cover lying flat has nothing to cast onto. */
+		/* No hairline of light while the cover is shut. It runs the full width of
+		   the folder along its top edge — which is exactly where the tab stands —
+		   so it draws a bright rule between the tab and the sheet and the two
+		   stop reading as one piece of card. A lit edge belongs to an edge that
+		   has lifted; until then there is nothing there to catch the light.
+
+		   The cast stays: it falls upward onto the folder standing behind this
+		   one, which is what separates two sheets of the same stock. */
+		box-shadow: var(--folder-drop);
+		transition-property: transform, box-shadow;
+		transition-duration: var(--folder-duration);
+		transition-timing-function: var(--folder-ease);
+	}
+
+	/* Hovering the body cracks it: roughly 15% of the way to open. */
+	/* The covers in front lie back by the same angle, but without the light: only
+	   the cover being pointed at catches it. */
+	/* Only the cover of the folder being pointed at moves. Its own sheet holds
+	   still — the folder is opening, not tipping — and every folder standing in
+	   front of it swings to the same angle the cover took, shut, so the whole
+	   stack ahead reads as being lifted out of the way by that one cover. */
+	/* The shadow the cover throws up onto the sheet it has lifted off. It is the
+	   whole of what makes the fold legible on the frontmost folder: the band the
+	   tilt opens is the same stock in the same colour, and with nothing standing
+	   above it to frame the gap, the shade is the only thing that says the cover
+	   has moved. */
+	.folder[data-peek='true'] .folder__front,
+	.folder[data-open='true'] .folder__front {
+		transform: rotateX(var(--folder-crack));
+		box-shadow:
+			var(--folder-rim),
+			var(--folder-drop),
+			0 -7px 16px -5px rgb(0 0 0 / 0.6);
+	}
+
+	.folder[data-open='true'] .folder__front {
+		transform: rotateX(var(--folder-open));
+	}
+
+	/* The followers travel shut: the sheet carries the angle, the cover lies
+	   flat on it, and neither catches the light. */
+	.folder[data-peek-shifted='true'] {
+		transform: rotateX(var(--folder-crack));
+	}
+
+	.folder[data-shifted='true'] {
+		transform: rotateX(var(--folder-open));
+	}
+
+	.folder[data-peek-shifted='true'] .folder__front,
+	.folder[data-shifted='true'] .folder__front {
+		transform: none;
+		box-shadow: var(--folder-drop);
+	}
+
+	/* The reveal. Pointing at a folder's label slides every folder in front of it
+	   down the stack far enough to clear that folder's copy — the distance is
+	   measured off the copy itself and written to `--folder-push`. It rides on
+	   `translate` rather than `transform` so it composes with the tilt the same
+	   folders are taking: the two motions layer instead of overwriting one
+	   another. */
+	.folder[data-pushed='true'] {
+		translate: 0 var(--folder-push, 0px);
+	}
+
+	/* Chapter tabs on the cover's top edge, kept clear of the unfold strip. */
+	.folder__tabs {
+		position: absolute;
+		z-index: 3;
+		/* The row stretches well past its tabs and sits outside the folder it
+		   belongs to. Letting it take the pointer meant the folder opened while
+		   the cursor was still over empty space beside a tab. */
+		pointer-events: none;
+		bottom: 100%;
+		left: var(--folder-inset);
+		right: 34%;
+		display: flex;
+		align-items: flex-end;
+		/* Across only: the row still cuts tabs off at its trailing edge, but the
+		   shadow the frontmost tab throws is allowed to fall past the bottom
+		   instead of being sliced along the folder's top edge. */
+		overflow-x: clip;
+		overflow-y: visible;
+	}
+
+	.tab {
+		/* The tab shape itself is the hover target — its painted area only, so
+		   the gaps between the shoulder curves stay inert. */
+		pointer-events: auto;
+		/* No shadow of its own. `drop-shadow` is the only filter that follows a
+		   masked shape, and it is not clipped the way a box-shadow is: it paints
+		   the tab's blurred silhouette in every direction, so as much of it fell
+		   below the tab — onto the cover the tab is standing on — as above.
+		   A folder does not shade itself.
+
+		   What separates the tab from the folder behind it is that folder's own
+		   cover casting upward, which is clipped to its own top edge and cannot
+		   land on the wrong side of it. See .folder__front. */
+		/* The tab is the top edge of the sheet, so it is made of the same stock
+		   and lit by the same wash.
+		 *
+		 * Declared here and used by all three pieces so the shoulders and the
+		 * label cannot drift apart. */
+		--tab-surface:
+			linear-gradient(var(--sheen-angle), var(--folder-sheen-stops)) 0 0 / 100% 800px no-repeat,
+			var(--folder-color);
+		/* Never shrink: a squeezed tab truncates its title. The row clips
+		   instead, as in the reference. */
+		flex: none;
+		display: flex;
+		align-items: stretch;
+		height: var(--tab-height);
+		/* Shoulders of neighbouring tabs tuck under each other. */
+	}
+
+	/* The shoulder is a shape, not a picture: the curve is a mask, so the piece
+	   underneath is the same painted surface as the label beside it. */
+	.tab__shoulder {
+		flex: none;
+		width: calc(var(--tab-height) * var(--tab-aspect));
+		height: 100%;
+		background: var(--tab-surface);
+		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0H24C40 0 34 44 62 44H0Z' fill='%23000'/%3E%3C/svg%3E")
+			center / 100% 100% no-repeat;
+		-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0H24C40 0 34 44 62 44H0Z' fill='%23000'/%3E%3C/svg%3E")
+			center / 100% 100% no-repeat;
+	}
+
+	/* One shape, mirrored, so both shoulders share a single path. The -1px tucks
+	   each shoulder under the label block: meeting it exactly leaves a
+	   sub-pixel seam, and the folder behind shows through it as a hairline. */
+	.tab__shoulder--start {
+		scale: -1 1;
+		margin-right: -1px;
+	}
+
+	.tab__shoulder--end {
+		margin-left: -1px;
+	}
+
+	/* The shoulders take their fill from `currentColor`; the label block paints
+	   the same colour as a background and puts its own ink back on top. */
+	.tab__label {
+		display: flex;
+		align-items: center;
+		min-width: 0;
+		padding: 0.1875rem 0.875rem 0;
+		background: var(--tab-surface);
+		color: var(--folder-ink);
+		font-size: var(--text-tab);
+		font-weight: 600;
+		line-height: 1;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.folder__summary p {
+		margin: 0;
+	}
+
+	.folder__line {
+		display: block;
+	}
+
+	.folder__summary {
+		position: absolute;
+		/* Starts where the label's strip ends. The lip already carries a margin of
+		   its own around the label, so anything added here reads as a gap rather
+		   than as spacing — and it costs the copy the room at the top of the
+		   cover, which is the only part of it a folder behind ever shows. */
+		top: var(--folder-lip);
+		right: var(--folder-inset);
+		/* The colophon stands on the same margin at the foot; the copy stops one
+		   line-height short of it. */
+		bottom: calc(var(--folder-inset) + var(--size-club-mark) + 1.5rem);
+		left: var(--folder-inset);
+		display: grid;
+		/* The box is stretched to the cover's bottom, so without this the grid
+		   spreads its rows over the whole height and the paragraphs drift apart. */
+		align-content: start;
+		gap: 0.75em;
+		max-width: 44rem;
+		margin: 0;
+		font-size: var(--text-body);
+		line-height: var(--lh-body);
+		/* The cover is the link; the copy printed on it must not intercept. */
+		pointer-events: none;
+	}
+
+	/* The whole cover is a link to the volume, as in the reference; the unfold
+	   strip and the chapter tabs sit above it and take their own clicks. */
+	.folder__page {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		border-radius: inherit;
+	}
+
+	.folder__page:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: -4px;
+	}
+
+	.folder__heading {
+		position: relative;
+		z-index: 2;
+		margin: 0;
+		font-size: inherit;
+		font-weight: inherit;
+	}
+
+	/* Label sits at the right, as in the reference — that keeps the left half of
+	   the lip clear for the tabs, and the whole strip is the unfold trigger. */
+	.folder__unfold {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		width: 100%;
+		height: var(--folder-lip);
+		/* 24px off the trailing edge, at every width — it is a control, and a
+		   control keeps its own distance from the corner rather than lining up
+		   with the copy printed on the cover. */
+		padding: 0 1.5rem 0 var(--folder-inset);
+		color: inherit;
+		text-align: right;
+		/* The strip is printed on the cover; only the text button inside it takes
+		   the pointer, so the rest of the lip still belongs to the cover's link. */
+		pointer-events: none;
+	}
+
+	/* The hover target itself: the words and the chevron, nothing more. Giving
+	   the whole lip this job meant the copy opened while the pointer was still
+	   crossing empty cover. */
+	.folder__button {
+		pointer-events: auto;
+		display: inline-flex;
+		align-items: center;
+		/* Tight: the chevron belongs to the word, not beside it. */
+		gap: clamp(0.375rem, 0.6vw, 0.5rem);
+		height: 100%;
+		cursor: pointer;
+	}
+
+	.folder__vol {
+		flex: none;
+		font-size: var(--text-meta);
+		opacity: 0.75;
+	}
+
+	.folder__title {
+		flex: 0 1 auto;
+		min-width: 0;
+		font-size: var(--text-folder-label);
+		font-weight: 400;
+		overflow-wrap: anywhere;
+	}
+
+	.folder__chevron {
+		flex: none;
+		width: var(--text-folder-label);
+		height: var(--text-folder-label);
+		rotate: -90deg;
+		transition-property: rotate;
+		transition-duration: var(--folder-duration);
+		transition-timing-function: var(--folder-ease);
+	}
+
+	/* Points down only while the copy is actually out — it is the state of the
+	   reveal, not of the fold. */
+	.folder[data-revealed='true'] .folder__chevron {
+		rotate: 0deg;
+	}
+
+	/* The summary is printed on the cover's face, which is why the reference
+	   only has to tilt it 3deg: what uncovers the copy is the covers in front
+	   retreating, not this one swinging out of the way. */
+
+	/* The scatter surface. Cards are absolutely placed so dragging one never
+	   reflows the others. */
+	.collage {
+		position: relative;
+		flex: 1 1 auto;
+		min-height: 0;
+		/* Pointer Events drive the drag; this stops the browser panning the page
+		   out from under a touch drag. */
+		touch-action: none;
+	}
+
+	.work {
+		position: absolute;
+		top: var(--y0);
+		left: var(--x0);
+		display: flex;
+		flex-direction: column;
+		width: min(15rem, 68%);
+		translate: var(--x, 0px) var(--y, 0px);
+		rotate: var(--tilt);
+		background: var(--color-card);
+		color: var(--color-card-text);
+		border-radius: 0.25rem;
+		box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 10px 28px rgb(0 0 0 / 0.24);
+		cursor: grab;
+		overflow: hidden;
+		user-select: none;
+	}
+
+	.work[data-dragging='true'] {
+		cursor: grabbing;
+		box-shadow: 0 2px 4px rgb(0 0 0 / 0.24), 0 20px 48px rgb(0 0 0 / 0.32);
+	}
+
+	.work:focus-visible {
+		outline: 3px solid var(--folder-ink);
+		outline-offset: 3px;
+	}
+
+	.work__thumb {
+		display: block;
+		width: 100%;
+		height: clamp(6rem, 9vw, 8rem);
+		object-fit: cover;
+		object-position: center 30%;
+		outline: 1px solid oklch(0 0 0 / 0.1);
+		outline-offset: -1px;
+		pointer-events: none;
+	}
+
+	.work__body {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		padding: 0.625rem 0.75rem 0.875rem;
+	}
+
+	.work__label {
+		font-size: var(--text-meta);
+		line-height: 1;
+		color: var(--color-card-muted);
+	}
+
+	.work__title {
+		margin: 0;
+		font-size: var(--text-body);
+		font-weight: 700;
+		line-height: var(--lh-tight);
+	}
+
+	.work__desc {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		overflow: hidden;
+		margin: 0;
+		font-size: var(--text-meta);
+		line-height: var(--lh-body);
+		color: var(--color-card-muted);
+	}
+
+	/* Date in the middle, wordmark on the trailing edge — the reference's foot. */
+	.folder__colophon {
+		position: absolute;
+		right: var(--folder-inset);
+		bottom: var(--folder-inset);
+		left: var(--folder-inset);
+		display: flex;
+		align-items: flex-end;
+		justify-content: flex-end;
+		/* Printed on the cover, like the rest of it — the cover is the link. */
+		pointer-events: none;
+	}
+
+	/* Taken out of the flow so it sits on the cover's centre line. Sharing a row
+	   with the wordmark would centre it on the space left over beside the mark
+	   instead, which reads as off-centre at phone width. */
+	.folder__date {
+		position: absolute;
+		bottom: 0;
+		left: 50%;
+		translate: -50% 0;
+		font-size: var(--text-meta);
+		line-height: 1;
+		letter-spacing: 0.04em;
+	}
+
+	/* Narrow screens. The tab is the piece that breaks first: its two shoulders
+	   cost 1.4 tab-heights each, so at phone width the shape alone is wider than
+	   the row it sits in and the title gets clipped. Squaring the shoulders off
+	   and dropping the type a step buys back enough room for the full title,
+	   and the row is given more of the lip now that the cover's own label is
+	   just the volume name. The tokens themselves are stepped down in
+	   global.css, where the rest of the folder's measurements live. */
+	@media (max-width: 720px) {
+		.folder__tabs {
+			right: 34%;
+		}
+
+		.tab__label {
+			padding: 0.125rem 0.625rem 0;
+		}
+
+		.folder__summary {
+			font-size: var(--text-meta);
+		}
+
+		.folder__vol {
+			display: none;
+		}
+	}
+
+	/* Small phones. The cover's own label is two syllables and a chevron here,
+	   so the tab row can take back most of the lip. */
+	@media (max-width: 400px) {
+		.folder__tabs {
+			right: calc(var(--folder-inset) + 4.25rem);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.folder,
+		.folder__front,
+		.folder__front::after,
+		.folder__chevron,
+		.tab {
+			transition-duration: 0.01ms;
+		}
+	}
+</style>
+
+<script>
+	const folders = Array.from(document.querySelectorAll<HTMLElement>('[data-folder]'));
+
+	const front = folders.length - 1;
+
+	/** Opening folder k uncovers its band by shrinking every cover in front of
+	 *  it — the indices greater than k. The frontmost folder keeps its own band
+	 *  on show throughout: nothing covers its lower half, and in the reference
+	 *  the opened category's copy and the front folder's are on screen together.
+	 */
+	const open = (index: number | null) => {
+		folders.forEach((folder, i) => {
+			folder.dataset.front = String(i === front);
+			folder.dataset.open = String(i === index);
+			folder.dataset.shifted = String(index !== null && i > index);
+		});
+	};
+
+	// Nothing is open until the visitor asks: every folder rests shut.
+	open(null);
+
+	/** Hover runs in two stages, as the reference does.
+	 *
+	 *  Over the folder body the cover cracks open a sliver and the colour lifts —
+	 *  enough to say "this one is live" without committing the screen to it.
+	 *  Over the folder's own tab it opens the rest of the way and the summary
+	 *  comes up. Clicking anywhere on the cover goes to the volume.
+	 *
+	 *  Pointer-gated: on touch a tap would otherwise peek and follow the link in
+	 *  the same gesture. */
+	const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+	const isMouse = (event: PointerEvent) =>
+		finePointer.matches && event.pointerType === 'mouse';
+
+	/** A cover never tilts alone. Whatever angle the hovered one takes, every
+	 *  cover standing in front of it takes the same — that is what keeps their
+	 *  edges parallel instead of one tapering against square neighbours. */
+	const peek = (index: number | null) => {
+		folders.forEach((folder, i) => {
+			folder.dataset.peek = String(i === index);
+			folder.dataset.peekShifted = String(index !== null && i > index);
+		});
+	};
+
+	peek(null);
+
+	/** How far the folders in front have to travel for folder `index` to show its
+	 *  copy.
+	 *
+	 *  Where the copy ends, plus the margin the cover keeps on every side, less
+	 *  the lip — the folder in front already stands one lip below this one, and
+	 *  that head start is travel it does not have to make. Forgetting it left the
+	 *  last two lines under the next folder.
+	 *
+	 *  Plus that folder's tab, which stands above its top edge: clearing the
+	 *  folder is not clearing the folder, and the tab was sitting on the last
+	 *  line of copy.
+	 *
+	 *  Layout offsets, not bounding rects: by the time a label is hovered the
+	 *  covers are tilting, and rects measured through that rotation come back
+	 *  shifted by the stack's own perspective.
+	 */
+	const revealDistance = (index: number): number => {
+		const folder = folders[index];
+		const next = folders[index + 1];
+		const summary = folder?.querySelector<HTMLElement>('.folder__summary');
+		const last = summary?.lastElementChild as HTMLElement | null;
+		if (!folder || !next || !summary || !last) return 0;
+
+		const inset = summary.offsetLeft;
+		const copyEnds = summary.offsetTop + last.offsetTop + last.offsetHeight;
+		const lip = next.offsetTop - folder.offsetTop;
+		const tab = next.querySelector<HTMLElement>('.tab')?.offsetHeight ?? 0;
+
+		return Math.max(0, Math.round(copyEnds + inset - lip + tab));
+	};
+
+	/** The reference's text button. Pointing at folder k's label pushes every
+	 *  folder in front of it down the stack until k's copy is in the open; the
+	 *  fold carries on underneath, so a cover that was opening stays open.
+	 *
+	 *  The frontmost folder is exempt: its copy is on show already and there is
+	 *  nothing standing in front of it to move.
+	 */
+	const reveal = (index: number | null) => {
+		const distance = index === null ? 0 : revealDistance(index);
+
+		folders.forEach((folder, i) => {
+			const pushed = index !== null && i > index;
+			folder.dataset.revealed = String(index !== null && i === index);
+			folder.dataset.pushed = String(pushed);
+
+			if (pushed) {
+				folder.style.setProperty('--folder-push', `${distance}px`);
+			} else {
+				folder.style.removeProperty('--folder-push');
+			}
+		});
+	};
+
+	reveal(null);
+
+	folders.forEach((folder, index) => {
+		folder.addEventListener('pointerenter', (event) => {
+			if (!isMouse(event)) return;
+			peek(index);
+		});
+
+		const button = folder.querySelector<HTMLElement>('[data-unfold]');
+
+		const tab = folder.querySelector<HTMLElement>('.tab');
+		tab?.addEventListener('pointerenter', (event) => {
+			if (!isMouse(event)) return;
+			open(index);
+		});
+
+		/* Hover opens a folder; a click anywhere on one goes to it, which the
+		 * transition handles for the folder as a whole.
+		 *
+		 * Touch has no hover, so there the tab carries the reveal instead: tap to
+		 * open the folder, tap again to close it. The cover still goes to the
+		 * volume. */
+		tab?.addEventListener('click', () => {
+			if (finePointer.matches) return;
+
+			const showing = folder.dataset.open === 'true';
+			if (showing) {
+				open(null);
+				reveal(null);
+				return;
+			}
+
+			open(index);
+			reveal(index < front ? index : null);
+		});
+
+		// Nothing in front of the frontmost folder to push, and its copy is
+		// already in the open.
+		if (button && index < front) {
+			button.addEventListener('pointerenter', (event) => {
+				if (!isMouse(event)) return;
+				open(index);
+				reveal(index);
+			});
+
+			button.addEventListener('pointerleave', (event) => {
+				if (!isMouse(event)) return;
+				reveal(null);
+			});
+		}
+
+
+		// Keyboard users get the full reveal when focus lands inside a folder.
+		// Keyboard: focus landing on the cover's link opens the folder it belongs to.
+		folder.addEventListener('focusin', () => open(index));
+	});
+
+	// Leaving the stack settles back to the resting state.
+	const stack = document.querySelector<HTMLElement>('.folder-stack');
+
+	// On touch the same job falls to a tap anywhere else on the page.
+	document.addEventListener('click', (event) => {
+		if (finePointer.matches) return;
+		if (stack?.contains(event.target as Node)) return;
+		open(null);
+		reveal(null);
+	});
+	stack?.addEventListener('pointerleave', (event) => {
+		if (!isMouse(event)) return;
+		peek(null);
+		open(null);
+		reveal(null);
+	});
+
+</script>

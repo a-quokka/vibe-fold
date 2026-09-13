@@ -1,0 +1,567 @@
+---
+/** Volume page → the second half of the transition.
+ *
+ *  The page opens holding the folder exactly where the home page let go of it:
+ *  in the middle of the screen, closed, lying on its side. From there it turns
+ *  a quarter turn to the right to stand upright, and its cover swings a full
+ *  half turn to the left, off the sheet — the way a file folder actually opens.
+ *
+ *  The folder is authored upright, in the orientation it ends in, and starts
+ *  the scene turned -90deg. That keeps the tab's markup the same shape it has
+ *  in the stack, and it puts the tab at the top left while the folder is lying
+ *  down — which is where the stack's own tab was a moment earlier.
+ */
+interface Props {
+	/** The folder's colour and its ink, from the same palette as the stack. */
+	color: string;
+	ink: string;
+	/** The tab's words — `Vol.0 속담`. */
+	label: string;
+	/** What is filed inside it, printed on the sheet the cover swings off. */
+	title: string;
+	summary: string[];
+	/** What is filed in the volume, in order. */
+	works: { href: string; label: string; title: string }[];
+}
+
+const { color, ink, label, title, summary, works } = Astro.props;
+---
+
+<div class="opening" data-opening style={`--sheet: ${color}; --ink: ${ink};`}>
+	<div class="opening__folder" data-opening-folder>
+		{/* What the cover is lying on, and the sheet of paper filed in it. The
+		    cover uncovers the paper as it swings — nothing animates it, because
+		    nothing should: it has been lying there the whole time. */}
+		<div class="opening__inner">
+			<article class="opening__paper">
+				<h1 class="opening__title">{title}</h1>
+
+				<div class="opening__copy">
+					{summary.map((paragraph) => <p>{paragraph}</p>)}
+				</div>
+
+				{works.length > 0 && (
+					<ol class="opening__works">
+						{works.map((work) => (
+							<li>
+								<a class="opening__work" href={work.href}>
+									<span class="opening__work-label">{work.label}</span>
+									<span class="opening__work-title">{work.title}</span>
+								</a>
+							</li>
+						))}
+					</ol>
+				)}
+			</article>
+		</div>
+
+		{/* Same tab as the stack's, stood on the folder's trailing edge. Lying
+		    down it reads horizontally, along the top. */}
+		<span class="opening__tab">
+			<span class="opening__shoulder opening__shoulder--start"></span>
+			<span class="opening__tab-label">{label}</span>
+			<span class="opening__shoulder opening__shoulder--end"></span>
+		</span>
+
+		{/* The cover. Two faces on one hinge: the outside you have been looking
+		    at since the home page, and the inside you only see once it has gone
+		    past upright. */}
+		<div class="opening__cover" data-opening-cover>
+			<span class="opening__face opening__face--out"></span>
+			<span class="opening__face opening__face--in"></span>
+		</div>
+	</div>
+</div>
+
+{/* Runs while the page is still parsing, before anything is painted. The size
+    the folder arrives at comes from the page before it, and a module script —
+    deferred by definition — sets it one frame too late: the folder is painted
+    once at the size CSS gives it, then jumps. That jump is the flicker. */}
+<script is:inline>
+	(() => {
+		const KEY = 'vibe-fold:handoff';
+		let record = null;
+		try {
+			const raw = sessionStorage.getItem(KEY);
+			sessionStorage.removeItem(KEY);
+			if (raw) {
+				const parsed = JSON.parse(raw);
+				// Stale means the visitor arrived some other way — a reload, a
+				// bookmark, the back button an hour later.
+				if (Date.now() - parsed.at < 4000) record = parsed;
+			}
+		} catch {
+			// Private browsing and the like: the folder opens at its own size.
+		}
+
+		// No record means nobody clicked a folder to get here — a reload, a
+		// bookmark, a link. There is no turn to finish, so the scene is marked
+		// and the page arrives the way the reference's own does: already open,
+		// rising from the bottom of the screen.
+		if (!record) {
+			document.querySelector('[data-opening]')?.setAttribute('data-direct', 'true');
+			return;
+		}
+
+		const folder = document.querySelector('[data-opening-folder]');
+		if (!folder) return;
+
+		// The record is the folder lying down; the element is authored upright,
+		// so the two measurements swap.
+		folder.style.width = `${record.height}px`;
+		folder.style.height = `${record.width}px`;
+		folder.style.top = `calc(var(--stage-top) + ${record.height / 2}px)`;
+	})();
+</script>
+
+<style>
+	.opening {
+		/* Absolute, not fixed. The transition runs at the top of the page, where
+		   the two are the same thing — and afterwards this is the page, so it has
+		   to be able to grow past the bottom of the screen and scroll. */
+		position: absolute;
+		inset: 0 0 auto;
+		min-height: 100svh;
+		/* Under the header, over everything else: the navigation keeps its band
+		   through the transition. */
+		z-index: 40;
+		background: var(--color-bg);
+		/* One vanishing point for the folder and its cover both. */
+		perspective: var(--stage-perspective);
+	}
+
+	.opening__folder {
+		/* Centred by hand rather than by the grid: standing upright the folder is
+		   taller than the screen, and a grid item that overflows its track gets
+		   pushed back to the start edge instead of staying centred — which landed
+		   it 195px below where the home page let go of it. `translate` is its own
+		   property, so the timeline can own `transform` without disturbing it. */
+		position: absolute;
+		left: 50%;
+		/* Hung from the top rather than centred, matching where the home page
+		   leaves it. The offset is the folder's own centre line: the script puts
+		   the real number here once it knows what size it is holding. */
+		top: calc(var(--stage-top) + var(--stage-w) / 2);
+		translate: -50% -50%;
+		width: var(--stage-w);
+		height: var(--stage-h);
+		transform-style: preserve-3d;
+		/* Lying on its side, as it arrived. Written as a transform rather than as
+		   `rotate`, because the timeline animates this element's transform: the
+		   individual property would compose with it instead of being replaced,
+		   and the folder would turn a quarter of the way and stay there. */
+		transform: rotate(-90deg);
+		/* Lying down, the light has to come from what is the folder's own leading
+		   edge for it to fall from the top of the screen. The turn sweeps this
+		   back to 180deg, so the lit edge stays up there throughout. */
+		--sheen-angle: 270deg;
+	}
+
+	.opening__inner {
+		position: absolute;
+		/* Two pixels proud of the cover on every side. The cover is held a hair
+		   in front of the sheet, and under perspective that hair shrinks its
+		   projection by a fraction of a pixel — at a straight edge that shows as
+		   a hairline of dark ground, and at a rounded corner as a notch, because
+		   the two arcs no longer sit on top of one another. The sheet reaching
+		   past the cover leaves nothing behind it to show through, and the two
+		   being the same colour makes the overlap invisible.
+
+		   Only the spine. Both surfaces stay at z=0 so their top and bottom
+		   edges land on exactly the same line: opened out, the fold has to read
+		   as a crease across one continuous sheet, and a sheet held even a pixel
+		   off the cover is projected a fraction smaller and steps away from it
+		   at the edges. */
+		inset: 0 0 0 -2px;
+		display: flex;
+		align-items: flex-end;
+		padding: var(--folder-inset);
+		/* The same paper as the cover, with nothing mixed into it. Any shade at
+		   all here reads as a dark panel laid over the folder rather than as the
+		   inside of it. */
+		/* The same stock as the cover and the tab, wash and all. Painted as the
+		   bare colour it came out a shade darker than every other face of the
+		   same folder, and the spread read as two pieces of card rather than one
+		   sheet folded. */
+		background:
+			linear-gradient(var(--sheen-angle), var(--folder-sheen-stops)),
+			var(--sheet);
+		color: var(--ink);
+		/* Rounded on the outside, square along the spine. Opened out, that puts a
+		   12px corner at each of the four corners of the spread and leaves the
+		   fold itself a clean crease — two rounded edges meeting there would
+		   pinch a notch at each end. */
+		border-radius: 0 var(--folder-radius) var(--folder-radius) 0;
+	}
+
+	/* The paper. Inset from the folder's edges on three sides and further from
+	   the trailing one, where the folder's own colour carries the tab — the
+	   proportion a sheet actually sits at inside a file. */
+	.opening__paper {
+		position: absolute;
+		/* Only as tall as what is written on it. The sheet is a sheet of paper,
+		   not a panel: it ends where the words end, and the folder's own stock
+		   carries on below. `bottom: auto` is what makes it hug — and it hugs
+		   from the first frame, so nothing changes height when the transition
+		   hands the page over. */
+		/* Even margins in a fixed measure, not a share of the folder: the folder's
+		   width is set to hug this sheet, so the two cannot both be derived from
+		   each other. */
+		inset: 3% 3.5rem auto 3.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: clamp(1.25rem, 3.5%, 2.5rem);
+		padding: clamp(1.5rem, 7%, 3.25rem);
+		background: #f4f1ea;
+		color: #191919;
+		border-radius: 8px;
+		/* Held a hair behind the cover. Coplanar surfaces in one 3D context let
+		   the renderer interleave them; the paper can afford the depth because
+		   it sits inside the folder's edges, where a fraction of a pixel of
+		   scale has nothing to line up with. */
+		transform: translateZ(-1px);
+	}
+
+	.opening__copy {
+		display: grid;
+		align-content: start;
+		gap: 0.75em;
+		max-width: 44em;
+		font-size: var(--text-body);
+		line-height: var(--lh-body);
+	}
+
+	.opening__copy p {
+		margin: 0;
+	}
+
+	.opening__title {
+		margin: 0;
+		font-size: clamp(1.5rem, 5%, 2.5rem);
+		font-weight: 700;
+		line-height: var(--lh-tight);
+	}
+
+	/* What is filed in the volume, listed on the paper. */
+	.opening__works {
+		display: flex;
+		flex-direction: column;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		border-top: 1px solid rgb(0 0 0 / 0.12);
+	}
+
+	.opening__work {
+		display: flex;
+		align-items: baseline;
+		gap: 1rem;
+		padding: 0.875rem 0;
+		border-bottom: 1px solid rgb(0 0 0 / 0.12);
+		/* The list ends with a title, not with a rule. */
+		color: inherit;
+		transition-property: opacity;
+		transition-duration: 150ms;
+		transition-timing-function: var(--ease-out);
+	}
+
+	.opening__works li:last-child .opening__work {
+		border-bottom: 0;
+	}
+
+	.opening__work:hover {
+		opacity: 0.55;
+	}
+
+	.opening__work-label {
+		flex: none;
+		width: 3.5rem;
+		font-size: var(--text-meta);
+		font-variant-numeric: tabular-nums;
+		opacity: 0.55;
+	}
+
+	.opening__work-title {
+		font-size: var(--text-body);
+		font-weight: 600;
+	}
+
+	.opening__tab {
+		position: absolute;
+		top: var(--folder-inset);
+		/* The quarter turn is about the tab's own top left corner, which swings
+		   it back across the sheet by its own height. Starting it one height
+		   further out lands it outside the trailing edge, standing proud of the
+		   folder the way the stack's tabs stand above their covers. */
+		left: calc(100% + var(--tab-height));
+		display: flex;
+		align-items: stretch;
+		height: var(--tab-height);
+		/* No cast — see the stack's tab. Here there is nothing behind it to
+		   shade either: the tab stands on the page's own ground. */
+		/* The same stock as the sheet it stands on — see the stack's tab. The
+		   gradient is sized to the folder, not to the tab, so all three pieces
+		   show the same sliver of the same ramp. */
+		--tab-surface:
+			linear-gradient(var(--sheen-angle), var(--folder-sheen-stops)) 0 0 / 100% 800px no-repeat,
+			var(--sheet);
+		/* Stood on the trailing edge, hinged at the corner it meets. */
+		transform-origin: left top;
+		rotate: 90deg;
+	}
+
+	.opening__shoulder {
+		flex: none;
+		width: calc(var(--tab-height) * var(--tab-aspect));
+		height: 100%;
+		background: var(--tab-surface);
+		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0H24C40 0 34 44 62 44H0Z' fill='%23000'/%3E%3C/svg%3E")
+			center / 100% 100% no-repeat;
+		-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0H24C40 0 34 44 62 44H0Z' fill='%23000'/%3E%3C/svg%3E")
+			center / 100% 100% no-repeat;
+	}
+
+	.opening__shoulder--start {
+		scale: -1 1;
+		margin-right: -1px;
+	}
+
+	.opening__shoulder--end {
+		margin-left: -1px;
+	}
+
+	.opening__tab-label {
+		display: flex;
+		align-items: center;
+		padding: 0.1875rem 0.875rem 0;
+		background: var(--tab-surface);
+		color: var(--ink);
+		font-size: var(--text-tab);
+		font-weight: 600;
+		line-height: 1;
+		white-space: nowrap;
+	}
+
+	.opening__cover {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		/* The spine. Everything about this reading as a folder rather than a lid
+		   is in the origin being the leading edge and the turn being about Y. */
+		transform-origin: left center;
+		transform-style: preserve-3d;
+	}
+
+	.opening__face {
+		position: absolute;
+		inset: 0;
+		/* Same rule as the sheet's. The cover turns about its leading edge, so in
+		   element terms the spine is its left edge whichever way it is lying. */
+		border-radius: 0 var(--folder-radius) var(--folder-radius) 0;
+		backface-visibility: hidden;
+	}
+
+	/* No shadow on either face. The folder crosses the page change with none —
+	   the copy that flies out of the stack is flat — and one appearing the
+	   instant the next page paints is the one thing that gives the two halves
+	   away as two. */
+	.opening__face--out {
+		background:
+			linear-gradient(var(--sheen-angle), var(--folder-sheen-stops)),
+			var(--sheet);
+		/* No lit edge while it is shut — see the stack's cover. */
+		box-shadow: var(--folder-drop);
+	}
+
+	/* The inside of the cover is turned twice — once here, to face away, and
+	   once again when the cover swings open — so it ends up reading the right
+	   way round in a flipped position. Its corners have to be specified
+	   mirrored, or the rounding lands on the spine and cuts a notch out of the
+	   fold while the far edge stays square. */
+	.opening__face--in {
+		background:
+			linear-gradient(var(--sheen-angle), var(--folder-sheen-stops)),
+			var(--sheet);
+		box-shadow: var(--folder-rim);
+		border-radius: var(--folder-radius) 0 0 var(--folder-radius);
+		transform: rotateY(180deg);
+	}
+
+	/* Nothing to animate: the folder is already open and the page is underneath. */
+	@media (prefers-reduced-motion: reduce) {
+		.opening {
+			display: none;
+		}
+	}
+</style>
+
+<script>
+	import { gsap } from 'gsap';
+
+	const scene = document.querySelector<HTMLElement>('[data-opening]');
+	const folder = document.querySelector<HTMLElement>('[data-opening-folder]');
+	const cover = document.querySelector<HTMLElement>('[data-opening-cover]');
+	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+	if (scene && folder && cover) {
+		if (reduced.matches) {
+			scene.remove();
+			window.dispatchEvent(new CustomEvent('vibe-fold:opened'));
+		} else {
+			/** Lying down, the folder's height is the width it had on the page it
+			 *  came from. That is the measure it opens back out to; the proportions
+			 *  are its own, so what it gains in width it gains in height, and the
+			 *  page scrolls for the rest. The folder is the one thing allowed past
+			 *  the bottom of the screen. */
+			/** The folder opens at the size it arrived at. Nothing about a cover
+			 *  swinging back changes how big the folder is, and a folder that
+			 *  grows as it opens reads as the page zooming rather than as a thing
+			 *  being opened. */
+			const openHeight = folder.offsetHeight;
+
+			/** Opened, the folder is taller than the screen, and growing about its
+			 *  own centre would push its top edge up under the navigation — the
+			 *  paper's first lines end up behind the wordmark. Its top is set below
+			 *  the header with a band of air between them, and the rest of it runs
+			 *  off the bottom, where the page scrolls. */
+			const probe = document.createElement('div');
+			probe.style.cssText =
+				'position:fixed;left:0;top:0;width:0;height:calc(var(--h-header) + var(--space-hero-y));visibility:hidden';
+			document.body.appendChild(probe);
+			const headerHeight = probe.getBoundingClientRect().height;
+			probe.remove();
+
+			const centreNow = folder.getBoundingClientRect().top + folder.offsetWidth / 2;
+			const openY = headerHeight + openHeight / 2 - centreNow;
+
+			const direct = scene.dataset.direct === 'true';
+			const timeline = gsap.timeline({ paused: direct });
+
+			if (direct) {
+				// Nothing was clicked to get here, so there is no turn to play. The
+				// folder is put straight into the state the turn would have left it
+				// in, and the page arrives instead.
+				gsap.set(folder, { rotation: 0, '--sheen-angle': '180deg', y: openY });
+				gsap.set(cover, { rotateY: -180 });
+			}
+
+			timeline
+				// 3. Held for a beat in the state the home page handed over, so the
+				//    change of page is not the same instant as the change of shape.
+				.to({}, { duration: 0.24 })
+				// 4. A quarter turn to the right: the folder stands up and the tab
+				//    finishes on its trailing edge. Nothing about its size changes
+				//    on the way round — a folder this wide stands taller than the
+				//    screen, and it is allowed to run off the top and the bottom.
+				.to(folder, { rotation: 0, '--sheen-angle': '180deg', duration: 0.78, ease: 'power3.inOut' })
+				// 5. The cover opens to the left about its spine, a full half turn,
+				//    and comes to rest face down beside the folder. The folder
+				//    moves with it: a spread twice the width of a closed folder
+				//    cannot stay where the closed one stood, and it grows into
+				//    the room the turn gives it so the paper reads at its own
+				//    size rather than as a column on a coloured field.
+				.to(cover, { rotateY: -180, duration: 0.94, ease: 'power3.inOut' }, '>0.08')
+				// It only moves: down to where its top clears the header, and not an
+				// inch wider than it already is.
+				.to(folder, { y: openY, duration: 0.94, ease: 'power3.inOut' }, '<');
+
+			/** The transition ends and the page begins — in the same place, at the
+			 *  same size, so there is nothing to see in the change.
+			 *
+			 *  Everything up to here is positioned against the viewport, which is
+			 *  what a transition needs and what a page cannot have: the paper has
+			 *  to be able to run past the bottom of the screen and take the
+			 *  document with it. So the folder is handed back to the flow at the
+			 *  exact rect it settled on, and the paper leaves the sheet it was
+			 *  painted on to become the thing that gives the folder its height.
+			 */
+			/** The transition is over; hand the folder back to the document. */
+			const settle = () => {
+				const paper = scene.querySelector<HTMLElement>('.opening__paper');
+				if (!paper) return;
+
+				const folderBox = folder.getBoundingClientRect();
+				const paperBox = paper.getBoundingClientRect();
+				const inset = {
+					top: paperBox.top - folderBox.top,
+					left: paperBox.left - folderBox.left,
+					right: folderBox.right - paperBox.right,
+				};
+
+				// Not `clearProps` alone: the folder's resting transform in CSS is the
+				// quarter turn it starts the scene at, and clearing the inline one
+				// would lay it back down.
+				gsap.set(folder, { clearProps: 'transform' });
+				Object.assign(folder.style, {
+					transform: 'none',
+					position: 'relative',
+					left: 'auto',
+					top: 'auto',
+					translate: 'none',
+					marginLeft: `${folderBox.left}px`,
+					marginTop: `${folderBox.top}px`,
+					width: `${folderBox.width}px`,
+					height: 'auto',
+					minHeight: `${folderBox.height}px`,
+					// The paper's margins would belong to the folder rather than to
+					// the space around it — a flow child's top margin collapses
+					// through a parent with no padding of its own, and the gap the
+					// paper had while it was positioned would simply vanish. Held
+					// as padding, it cannot collapse.
+					padding: `${inset.top}px ${inset.right}px ${inset.top}px ${inset.left}px`,
+				});
+
+				folder.appendChild(paper);
+				Object.assign(paper.style, {
+					position: 'static',
+					margin: '0',
+					// A hair in front of the sheet it now sits beside rather than
+					// inside. Coplanar surfaces in one 3D context get sorted
+					// arbitrarily, and the sheet was painting over the paper.
+					transform: 'translateZ(1px)',
+				});
+
+				scene.dataset.settled = 'true';
+				// The page is open; whatever is meant to land on it can land.
+				window.dispatchEvent(new CustomEvent('vibe-fold:opened'));
+			};
+
+			timeline.eventCallback('onComplete', settle);
+
+			/** Arrived without a folder being clicked. The turn and the opening
+			 *  belong to that click, so they are jumped rather than played, and
+			 *  what is left is the reference's own arrival: the open folder comes
+			 *  up from the bottom edge of the screen, and the sheet inside it
+			 *  follows a beat later from a little further down still — the page
+			 *  being laid on the desk rather than assembled in place. */
+			if (direct) {
+				timeline.kill();
+				settle();
+
+				const paper = folder.querySelector<HTMLElement>('.opening__paper');
+				const arrival = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+				arrival.from(
+					folder,
+					{
+						// No `clearProps`: clearing the only transform GSAP is holding
+						// wipes the inline `transform: none` the settle wrote, and the
+						// folder's CSS transform — the quarter turn it arrives in —
+						// takes over again and lays it back down.
+						y: () => window.innerHeight - folder.getBoundingClientRect().top,
+						duration: 1,
+					},
+					0,
+				);
+
+				if (paper) {
+					arrival.from(paper, { y: '10rem', duration: 1 }, 0.1);
+				}
+			}
+
+			// And it stays there. The open folder is where the transition ends for
+			// now; nothing fades it out and the page underneath is not brought up.
+			
+		}
+	}
+</script>

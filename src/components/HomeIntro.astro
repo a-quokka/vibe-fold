@@ -1,0 +1,163 @@
+---
+/** How the home page arrives.
+ *
+ *  Straight off the reference's own timeline: the stack rises half its height
+ *  into place while the folders themselves come up from below the fold at
+ *  nearly twice their size, a hair apart from one another; the slogan is dealt
+ *  out a line at a time, each line's letters rising from behind their own edge.
+ *
+ *  Everything it touches is hidden before the first paint and handed back at
+ *  the end, so the page never shows its start state and the stack goes back to
+ *  being driven by CSS the moment the entrance is over.
+ */
+---
+
+<script is:inline>
+	// Set on the element itself, before anything paints. A module script is
+	// deferred, and by the time one runs the page has already shown the slogan
+	// and the stack sitting in their finished positions.
+	document.documentElement.dataset.intro = 'pending';
+</script>
+
+<style is:global>
+	html[data-intro='pending'] .folder-stack,
+	html[data-intro='pending'] .slogan__text {
+		opacity: 0;
+	}
+
+	/* Splitting into letters makes every letter a break opportunity, and the
+	   slogan starts wrapping mid-word. The word is what holds together. */
+	.slogan__word {
+		display: inline-block;
+		white-space: nowrap;
+	}
+
+	/* The letter rises from behind its own edge rather than from nothing. */
+	.slogan__char {
+		display: inline-block;
+		overflow: hidden;
+		vertical-align: bottom;
+	}
+
+	.slogan__char > span {
+		display: inline-block;
+		will-change: transform;
+	}
+</style>
+
+<script>
+	import { gsap } from 'gsap';
+
+	const root = document.documentElement;
+	const stack = document.querySelector<HTMLElement>('.folder-stack');
+	const title = document.querySelector<HTMLElement>('.slogan__text');
+	const folders = stack ? Array.from(stack.querySelectorAll<HTMLElement>('.folder')) : [];
+
+	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	/** Wrap every character in a clipped box of its own and hand back the
+	 *  characters, grouped into the lines they actually landed on. Measured
+	 *  rather than declared: the slogan is balanced by the browser, so where it
+	 *  breaks depends on the width it was given. */
+	const splitLines = (element: HTMLElement): HTMLElement[][] => {
+		const text = element.textContent ?? '';
+		element.textContent = '';
+
+		const chars: HTMLElement[] = [];
+		text.split(/(\s+)/).forEach((token) => {
+			if (token === '' ) return;
+			if (/^\s+$/.test(token)) {
+				element.append(token);
+				return;
+			}
+
+			const word = document.createElement('span');
+			word.className = 'slogan__word';
+			for (const character of token) {
+				const mask = document.createElement('span');
+				mask.className = 'slogan__char';
+				const inner = document.createElement('span');
+				inner.textContent = character;
+				mask.append(inner);
+				word.append(mask);
+				chars.push(inner);
+			}
+			element.append(word);
+		});
+
+		const lines = new Map<number, HTMLElement[]>();
+		chars.forEach((char) => {
+			// Rounded: characters on one line differ by a fraction of a pixel.
+			const top = Math.round(char.getBoundingClientRect().top);
+			const line = lines.get(top);
+			if (line) line.push(char);
+			else lines.set(top, [char]);
+		});
+
+		return Array.from(lines.entries())
+			.sort((a, b) => a[0] - b[0])
+			.map(([, line]) => line);
+	};
+
+	const play = () => {
+		// Nothing is hidden any more; from here the timeline holds the positions.
+		delete root.dataset.intro;
+
+		if (reduced) {
+			gsap.fromTo(
+				[stack, title].filter(Boolean),
+				{ opacity: 0 },
+				{ opacity: 1, duration: 0.3, ease: 'power2.out' },
+			);
+			return;
+		}
+
+		const lines = title ? splitLines(title) : [];
+		const timeline = gsap.timeline({ defaults: { ease: 'power4.out' } });
+
+		if (stack) gsap.set(stack, { opacity: 1 });
+
+		/** The reference's own numbers are yPercent 200 and scale 1.75, and they
+		 *  do not transfer: its stack pages are thin strips, eight of them, so a
+		 *  folder at 1.75x is still a band crossing the screen. Ours are two
+		 *  full-height folders, and the same figures throw a screen-sized block
+		 *  of colour across the page and snatch it back.
+		 *
+		 *  What carries over is the shape of the move — up from under the fold,
+		 *  one folder a beat behind the next — at a size this object can take.
+		 *  The lift is a lift, not a zoom. */
+		if (folders.length > 0) {
+			timeline.fromTo(
+				folders,
+				{ yPercent: 28, scale: 1.03 },
+				{
+					yPercent: 0,
+					scale: 1,
+					duration: 0.85,
+					stagger: 0.07,
+					// Handed back to CSS: from here the tilt and the push are the
+					// stack's own business, and an inline transform would outrank them.
+					clearProps: 'scale,transform',
+				},
+				0,
+			);
+		}
+
+		if (title) {
+			gsap.set(title, { opacity: 1 });
+			lines.forEach((line, index) => {
+				timeline.fromTo(
+					line,
+					{ yPercent: 100, opacity: 0 },
+					{ yPercent: 0, opacity: 1, duration: 0.9, clearProps: 'transform,opacity' },
+					0.4 + index * 0.2,
+				);
+			});
+		}
+	};
+
+	// The slogan has to be measured to be split, and it cannot be measured until
+	// its font is the one it will be set in.
+	if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(play);
+	else play();
+</script>

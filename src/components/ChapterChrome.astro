@@ -1,4 +1,5 @@
 ---
+import BrandMark from './BrandMark.astro';
 import type { Chapter, Volume } from '../lib/content';
 import { chapterHref, formatChapterLabel } from '../lib/content';
 
@@ -34,7 +35,8 @@ function metaLine(chapter: Chapter): string {
 	</div>
 
 	<a class="chapter-chrome__brand" href="/">
-		<span class="chapter-chrome__name">Vibe Fold</span>
+		<BrandMark />
+		<span class="visually-hidden">Vibe Fold</span>
 		<span class="chapter-chrome__tagline">We publish visual stories that move the world</span>
 	</a>
 
@@ -131,13 +133,6 @@ function metaLine(chapter: Chapter): string {
 		text-align: center;
 	}
 
-	.chapter-chrome__name {
-		font-size: var(--text-brand);
-		font-weight: 700;
-		line-height: var(--lh-tight);
-		white-space: nowrap;
-	}
-
 	.chapter-chrome__tagline {
 		font-size: var(--text-meta);
 		font-weight: 400;
@@ -161,8 +156,7 @@ function metaLine(chapter: Chapter): string {
 			display: none;
 		}
 
-		.chapter-chrome__action,
-		.chapter-chrome__name {
+		.chapter-chrome__action {
 			font-size: var(--text-brand-sm);
 		}
 	}
