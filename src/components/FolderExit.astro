@@ -73,25 +73,35 @@
 			top: centreY - from.height / 2,
 		};
 
-		try {
-			sessionStorage.setItem(
-				HANDOFF,
-				JSON.stringify({
-					id: folder.dataset.flipId ?? '',
-					// What it is holding when the screen changes, and where on the
-					// screen it is holding it. The next page puts a folder down on
-					// that exact spot, so the change of page has nothing in it to
-					// see.
-					width: to.width,
-					height: to.height,
-					centreX: to.left + to.width / 2,
-					centreY: to.top + to.height / 2,
-					at: Date.now(),
-				}),
-			);
-		} catch {
-			// Private browsing: the volume page simply opens at its own size.
-		}
+		/** What it is holding when the screen changes, and where on the screen it
+		 *  is holding it. The next page puts a folder down on that exact spot, so
+		 *  the change of page has nothing in it to see.
+		 *
+		 *  Stamped when the page is actually left, not now. The flight takes a
+		 *  second and a half, and the reader on the other side treats an old
+		 *  record as somebody who arrived some other way — written here, the
+		 *  animation was spending most of the record's life before the next page
+		 *  had even been asked for, and on a real connection the rest went to
+		 *  fetching it. The record then read as stale and the volume page opened
+		 *  the way it does for a bookmark. On localhost that never happened,
+		 *  which is why the two looked like different transitions. */
+		const handOver = () => {
+			try {
+				sessionStorage.setItem(
+					HANDOFF,
+					JSON.stringify({
+						id: folder.dataset.flipId ?? '',
+						width: to.width,
+						height: to.height,
+						centreX: to.left + to.width / 2,
+						centreY: to.top + to.height / 2,
+						at: Date.now(),
+					}),
+				);
+			} catch {
+				// Private browsing: the volume page simply opens at its own size.
+			}
+		};
 
 		const proxy = folder.cloneNode(true) as HTMLElement;
 		HOVER_STATE.forEach((key) => delete proxy.dataset[key]);
@@ -125,6 +135,7 @@
 
 		const timeline = gsap.timeline({
 			onComplete: () => {
+				handOver();
 				window.location.href = href;
 			},
 		});

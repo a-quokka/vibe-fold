@@ -93,8 +93,11 @@ const { color, ink, label, title, summary, works } = Astro.props;
 			if (raw) {
 				const parsed = JSON.parse(raw);
 				// Stale means the visitor arrived some other way — a reload, a
-				// bookmark, the back button an hour later.
-				if (Date.now() - parsed.at < 4000) record = parsed;
+				// bookmark, the back button an hour later. The record is taken off
+				// the shelf as it is read, so this only has to outlast fetching one
+				// page; four seconds did not, on a connection slower than a
+				// loopback.
+				if (Date.now() - parsed.at < 30000) record = parsed;
 			}
 		} catch {
 			// Private browsing and the like: the folder opens at its own size.
