@@ -149,7 +149,9 @@ export function getAllVolumes(): Volume[] {
 		});
 	}
 
-	return volumes.sort((a, b) => b.number - a.number);
+	// Ascending: the folder stack paints in array order and the last one drawn
+	// stands at the front, so the newest volume is the one facing the room.
+	return volumes.sort((a, b) => a.number - b.number);
 }
 
 export function getVolumeByVolId(volId: string): Volume | undefined {
@@ -199,4 +201,20 @@ export function formatVolumeTitle(volume: Pick<VolumeMeta, 'number' | 'title' | 
 
 export function formatChapterLabel(order: number, title: string): string {
 	return `Ch.${order} ${title}`;
+}
+
+/** The date printed on a volume's cover.
+ *
+ *  `volume.yaml` may hold a bare year (`2026`), a year-month, or a full date —
+ *  and YAML turns an unquoted ISO date into a `Date` on its own, which is why
+ *  this takes `unknown` rather than `string`. Everything comes back
+ *  dot-separated: 2026, 2026.03, 2026.03.14.
+ */
+export function formatVolumeDate(date: unknown): string {
+	if (date instanceof Date) {
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${date.getUTCFullYear()}.${pad(date.getUTCMonth() + 1)}.${pad(date.getUTCDate())}`;
+	}
+
+	return String(date ?? '').trim().replace(/-/g, '.');
 }

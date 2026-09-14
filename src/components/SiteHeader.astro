@@ -1,34 +1,163 @@
 ---
+import BrandMark from './BrandMark.astro';
+
 interface Props {
 	compact?: boolean;
+	/** The home page states the tagline as its own slogan, so the header there
+	 *  carries the wordmark alone rather than repeating it. */
+	tagline?: boolean;
 }
 
-const { compact = false } = Astro.props;
+const { compact = false, tagline = true } = Astro.props;
+
+/** Top navigation.
+ *
+ *  `href: undefined` means the destination does not exist on this site yet —
+ *  those render as plain labels rather than as links that lead nowhere. Give an
+ *  item a URL here and it becomes a link with no other change needed.
+ */
+const navItems: { label: string; href?: string; external?: boolean }[] = [
+	{ label: 'About', href: 'https://vibecodingclub.kr/', external: true },
+	{ label: 'Works', href: '/#featured' },
+	{ label: 'Space' },
+	{ label: 'Contact' },
+	{ label: 'Social' },
+];
+
+const here = Astro.url.pathname.replace(/\/+$/, '') || '/';
+
+function isCurrent(href?: string): boolean {
+	if (!href || href.startsWith('http')) return false;
+	const target = href.split('#')[0].replace(/\/+$/, '') || '/';
+	return target === here;
+}
 ---
 
-<header class:list={['site-header', { 'site-header--compact': compact }]}>
+<header class:list={['site-header', { 'site-header--compact': compact }]} data-site-header>
+	<div class="site-header__inner">
 	<a class="brand" href="/">
-		<span class="brand__name">Vibe Fold</span>
-		<span class="brand__tagline">We publish visual stories that move the world</span>
+		<BrandMark />
+		<span class="visually-hidden">Vibe Fold</span>
+		{tagline && (
+			<span class="brand__tagline">We publish visual stories that move the world</span>
+		)}
 	</a>
+
+	<nav class="site-nav" aria-label="Main">
+		<ul class="site-nav__list">
+			{
+				navItems.map((item) => {
+					const current = isCurrent(item.href);
+
+					return (
+						<li class="site-nav__item">
+							{item.href ? (
+								<a
+									class:list={['site-nav__link', { 'site-nav__link--current': current }]}
+									href={item.href}
+									aria-current={current ? 'page' : undefined}
+									rel={item.external ? 'noreferrer' : undefined}
+								>
+									{item.label}
+								</a>
+							) : (
+								<span class="site-nav__link site-nav__link--pending">{item.label}</span>
+							)}
+						</li>
+					);
+				})
+			}
+		</ul>
+	</nav>
+	</div>
 </header>
 
 <style>
+	/* Sits over the page rather than in the flow, so a full-bleed opening screen
+	   runs edge to edge behind it. Pages reserve `--h-header` at the top. */
+	/* The bar runs the full width — it is chrome, and chrome meets the edges of
+	   the screen. What is held to the page's measure is what is written on it. */
 	.site-header {
-		padding: 0;
+		position: fixed;
+		inset: 0 0 auto;
+		/* Above the page and everything dropped on it — the folders, the pinned
+		   notes, the windows. The only things that come over the bar are the two
+		   a visitor summons themselves: the selection callout and the guestbook
+		   sheet. */
+		z-index: 100;
+		min-height: var(--h-header);
+		/* Out of the way on the way down, back on the way up — the page gets the
+		   whole screen while you are reading it, and the way out is one flick
+		   away wherever you are. */
+		translate: 0 0;
+		transition-property: translate, background-color, box-shadow;
+		transition-duration: 300ms;
+		transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 	}
 
-	.brand {
+	.site-header[data-hidden='true'] {
+		translate: 0 -100%;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.site-header {
+			transition-property: background-color, box-shadow;
+		}
+
+		/* Nothing slides; the bar simply stays. */
+		.site-header[data-hidden='true'] {
+			translate: 0 0;
+		}
+	}
+
+	.site-header__inner {
 		display: flex;
+		align-items: center;
+		/* Wordmark alone on the leading edge, the menu gathered on the trailing
+		   one — the two jobs read as two jobs. */
+		justify-content: space-between;
+		gap: clamp(1.25rem, 3vw, 2.75rem);
+		min-height: var(--h-header);
+		max-width: var(--w-max);
+		margin-inline: auto;
+		padding: 0 var(--page-pad);
+	}
+
+	/* At the top of a page the bar is nothing at all — the page opens on its own
+	   content. Once anything has scrolled under it, it becomes the same glass
+	   everything else that floats is made of, which is how a desktop toolbar
+	   behaves and what tells you the page has moved. */
+	.site-header[data-lifted='true'] {
+		background: var(--glass-bg);
+		/* No shadow at all. The material is the whole statement: the bar is
+		   evidently in front because the page is blurred through it, and every
+		   edge treatment on top of that — a rim, a sheen, a drop — reads as a box
+		   drawn round the page. */
+		box-shadow: none;
+		backdrop-filter: var(--glass-blur);
+		-webkit-backdrop-filter: var(--glass-blur);
+	}
+
+
+
+	.brand {
+		display: inline-flex;
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 1.5rem;
+		/* Colour is the static cue; opacity only softens the transition. */
+		transition-property: opacity;
+		transition-duration: 150ms;
+		transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 	}
 
-	.brand__name {
-		font-size: var(--text-brand);
-		font-weight: 700;
-		line-height: var(--lh-tight);
+	.brand:hover {
+		opacity: 0.7;
+	}
+
+	.brand:focus-visible {
+		outline: 2px solid var(--color-text);
+		outline-offset: 0.375rem;
 	}
 
 	.brand__tagline {
@@ -38,19 +167,124 @@ const { compact = false } = Astro.props;
 		color: var(--color-muted);
 	}
 
-	@media (max-width: 720px) {
-		.brand {
-			gap: 0.35rem 0.75rem;
-		}
+	.site-nav__list {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-nav-gap);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
 
-		.brand__name {
-			font-size: var(--text-brand-sm);
-			white-space: normal;
+	.site-nav__link {
+		display: inline-block;
+		font-size: var(--text-nav);
+		font-weight: 400;
+		line-height: var(--lh-tight);
+		white-space: nowrap;
+		color: var(--color-text);
+		transition-property: opacity, scale;
+		transition-duration: 150ms;
+		transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+	}
+
+	a.site-nav__link:hover {
+		opacity: 0.6;
+	}
+
+	a.site-nav__link:active {
+		scale: 0.96;
+	}
+
+	a.site-nav__link:focus-visible {
+		outline: 2px solid var(--color-text);
+		outline-offset: 0.25rem;
+	}
+
+	/* Current page. The reference fades it to 0.8, which is too slight to read
+	   as a state; muted colour carries it, and `aria-current` states it outright. */
+	.site-nav__link--current {
+		color: var(--color-muted);
+	}
+
+	a.site-nav__link--current:hover {
+		opacity: 1;
+	}
+
+	/* No destination yet — reads as a label, not as a link that goes nowhere. */
+	.site-nav__link--pending {
+		color: var(--color-muted);
+		cursor: default;
+	}
+
+	@media (max-width: 720px) {
+		.site-header__inner {
+			gap: 1rem;
 		}
 
 		.brand__tagline {
-			flex-basis: 100%;
-			white-space: normal;
+			display: none;
+		}
+
+		.site-nav__list {
+			flex-wrap: nowrap;
+			gap: 0.875rem;
+			overflow-x: auto;
+			scrollbar-width: none;
+		}
+
+		.site-nav__list::-webkit-scrollbar {
+			display: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.site-header,
+		.brand,
+		.site-nav__link {
+			transition: none;
 		}
 	}
 </style>
+
+<script>
+	// Two things the scroll decides: whether the bar is standing on anything,
+	// which gives it its material, and whether it is in the way, which sends it
+	// off the top. Reduced motion keeps it put — the CSS holds it — but still
+	// lets the material come and go.
+	const header = document.querySelector<HTMLElement>('[data-site-header]');
+	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+	if (header) {
+		let last = window.scrollY;
+		let ticking = false;
+
+		const update = () => {
+			const y = window.scrollY;
+
+			header.dataset.lifted = String(y > 8);
+
+			// Ignore jitter, and never hide while near the top of the page.
+			if (!reduced.matches && Math.abs(y - last) > 8) {
+				header.dataset.hidden = String(y > last && y > header.offsetHeight);
+				last = y;
+			}
+
+			ticking = false;
+		};
+
+		update();
+
+		window.addEventListener(
+			'scroll',
+			() => {
+				if (!ticking) {
+					ticking = true;
+					requestAnimationFrame(update);
+				}
+			},
+			{ passive: true },
+		);
+	}
+</script>

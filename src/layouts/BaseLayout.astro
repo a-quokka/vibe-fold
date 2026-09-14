@@ -1,4 +1,7 @@
 ---
+import FolderExit from '../components/FolderExit.astro';
+import SelectionHandles from '../components/SelectionHandles.astro';
+import Guestbook from '../components/Guestbook.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -21,7 +24,7 @@ const {
 	image = '/og.jpg',
 	icon,
 	type = 'website',
-	themeColor = '#ffffff',
+	themeColor = '#191919',
 } = Astro.props;
 
 // Summaries are authored as paragraphs; meta tags want one flat line.
@@ -50,6 +53,7 @@ const shareImage = new URL(image, Astro.site);
 				<>
 					<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 					<link rel="icon" href="/favicon.ico" />
+					<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 				</>
 			)
 		}
@@ -71,5 +75,8 @@ const shareImage = new URL(image, Astro.site);
 	</head>
 	<body class={bodyClass}>
 		<slot />
+		<FolderExit />
+		<SelectionHandles />
+		<Guestbook />
 	</body>
 </html>
