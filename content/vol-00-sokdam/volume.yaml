@@ -7,8 +7,9 @@ summary: |
 
   앞으로 이어질 볼륨이 어떤 모습일지 미리 보여 드리는 자리이기도 합니다. 천천히 둘러보시고, 다음 볼륨에도 함께해 주세요.
 date: 2026
-status: published
-featured: true
+shelf: 0
+status: coming_soon
+featured: false
 chapters:
   - ch-gorae-ssaume-saeu
   - ch-deungjan-miti-eodupda

@@ -31,8 +31,7 @@ if (!volume) {
 /** The page wears the colour of the folder that opened it, so arriving here
  *  reads as stepping inside that folder rather than as a separate screen. */
 const all = getAllVolumes();
-const order = all.findIndex((candidate) => candidate.volId === volume.volId);
-const swatch = swatchAt(order);
+const swatch = swatchAt(volume.number);
 
 const summaryParagraphs = volume.summary.split(/\n\n+/).filter(Boolean);
 const title = volume.example ? `${volume.title} (Example)` : volume.title;

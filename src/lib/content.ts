@@ -12,6 +12,10 @@ export interface VolumeMeta {
 	summary: string;
 	date: string;
 	status: VolumeStatus;
+	/** Where this volume stands in the drawer, if that is not where its number
+	 *  would put it. The number is the volume's name and half of its address, so
+	 *  it cannot be moved to reorder the stack; this can. */
+	shelf?: number;
 	featured?: boolean;
 	example?: boolean;
 }
@@ -151,7 +155,8 @@ export function getAllVolumes(): Volume[] {
 
 	// Ascending: the folder stack paints in array order and the last one drawn
 	// stands at the front, so the newest volume is the one facing the room.
-	return volumes.sort((a, b) => a.number - b.number);
+	const shelfOf = (volume: VolumeMeta) => volume.shelf ?? volume.number;
+	return volumes.sort((a, b) => shelfOf(a) - shelfOf(b));
 }
 
 export function getVolumeByVolId(volId: string): Volume | undefined {
