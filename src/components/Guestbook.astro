@@ -16,7 +16,7 @@
 	<div class="guestbook__notes" data-guestbook-notes></div>
 
 	{/* The way in. Parked in the corner for as long as the volume is open. */}
-	<button class="gb-open pressable" type="button" data-guestbook-open hidden>메시지 보내기</button>
+	<button class="gb-open pressable" type="button" data-guestbook-open hidden>방명록 남기기</button>
 
 	<form class="composer glass" data-guestbook-composer hidden>
 		<header class="composer__bar">
@@ -150,6 +150,8 @@
 	:global(.gb-note__time) {
 		font-size: 0.6875rem;
 		color: rgb(255 255 255 / 0.6);
+		/* A stamp of nothing but digits — they should stand in their columns. */
+		font-variant-numeric: tabular-nums;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -381,8 +383,17 @@
 			return { left: Math.round(left), top: Math.round(top) };
 		};
 
-		const clock = (at: number) =>
-			new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+		/** `26.02.12 10:42 PM` — the reader's own clock at the moment the note was
+		 *  left. Written out by hand rather than handed to a locale, so the shape
+		 *  stays the same wherever the page is opened. */
+		const clock = (at: number) => {
+			const d = new Date(at);
+			const pad = (n: number) => String(n).padStart(2, '0');
+			const hour = d.getHours();
+			const date = `${pad(d.getFullYear() % 100)}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+			const time = `${pad(hour % 12 || 12)}:${pad(d.getMinutes())} ${hour < 12 ? 'AM' : 'PM'}`;
+			return `${date} ${time}`;
+		};
 
 		const nodes: HTMLElement[] = [];
 

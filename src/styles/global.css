@@ -244,6 +244,7 @@
 	 */
 	--stage-paper-w: min(47.5rem, calc(100vw - 9rem - var(--tab-height)));
 	--stage-open-w: calc(var(--stage-paper-w) + 7rem);
+
 }
 
 /* Tablet and below. A folder as tall as the window is right on a wide screen,

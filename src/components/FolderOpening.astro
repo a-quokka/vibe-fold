@@ -17,51 +17,101 @@ interface Props {
 	ink: string;
 	/** The tab's words — `Vol.0 속담`. */
 	label: string;
+	/** Which folder in the home page's drawer this one is, so the way back can
+	 *  put it in the right slot. */
+	flipId: string;
 	/** What is filed inside it, printed on the sheet the cover swings off. */
 	title: string;
 	summary: string[];
 	/** What is filed in the volume, in order. */
-	works: { href: string; label: string; title: string }[];
+	works: { href: string; label: string; title: string; thumb: string }[];
 }
 
-const { color, ink, label, title, summary, works } = Astro.props;
+const { color, ink, label, flipId, title, summary, works } = Astro.props;
 ---
 
-<div class="opening" data-opening style={`--sheet: ${color}; --ink: ${ink};`}>
+<div class="opening" data-opening data-flip-id={flipId} style={`--sheet: ${color}; --ink: ${ink};`}>
 	<div class="opening__folder" data-opening-folder>
-		{/* What the cover is lying on, and the sheet of paper filed in it. The
-		    cover uncovers the paper as it swings — nothing animates it, because
-		    nothing should: it has been lying there the whole time. */}
-		<div class="opening__inner">
-			<article class="opening__paper">
-				<h1 class="opening__title">{title}</h1>
+		{/* What the cover is lying on, and everything filed in it. The cover
+		    uncovers it as it swings — nothing animates it, because nothing
+		    should: it has been lying there the whole time.
 
-				<div class="opening__copy">
-					{summary.map((paragraph) => <p>{paragraph}</p>)}
-				</div>
+		    Everything filed in the folder is one column: the sheet, and the works
+		    themselves stacked under it on the folder's own stock. One column and
+		    not two layers, because the folder has to know how tall it will be
+		    before it opens — and the only way to know that is to have the whole
+		    contents standing in the document, at the width it will be read at,
+		    before the cover moves. */}
+		<div class="opening__inner" data-opening-inner>
+			<div class="opening__sheet" data-opening-sheet>
+				<article class="opening__paper">
+					<h1 class="opening__title">{title}</h1>
 
+					<div class="opening__copy">
+						{summary.map((paragraph) => <p>{paragraph}</p>)}
+					</div>
+
+					{works.length > 0 && (
+						<ol class="opening__works">
+							{works.map((work) => (
+								<li>
+									<a class="opening__work" href={work.href}>
+										<span class="opening__work-label">{work.label}</span>
+										<span class="opening__work-title">{work.title}</span>
+									</a>
+								</li>
+							))}
+						</ol>
+					)}
+				</article>
+
+				{/* The works, each in the window a piece of work arrives in. They
+				    are laid out, not dropped: the folder is grown to hold them
+				    before it opens, and a pile placed at random is a pile whose
+				    height nobody can know in advance. */}
 				{works.length > 0 && (
-					<ol class="opening__works">
+					<ol class="opening__pile">
 						{works.map((work) => (
 							<li>
-								<a class="opening__work" href={work.href}>
-									<span class="opening__work-label">{work.label}</span>
-									<span class="opening__work-title">{work.title}</span>
+								<a class="pop" href={work.href}>
+									<span class="pop__bar">
+										<span class="pop__lights">
+											<span class="pop__light pop__light--close" />
+											<span class="pop__light pop__light--min" />
+											<span class="pop__light pop__light--zoom" />
+										</span>
+										<span class="pop__name">{work.title}</span>
+										{/* Balances the lights so the name sits on the centre line. */}
+										<span />
+									</span>
+
+									<span class="pop__canvas">
+										<img
+											class="pop__thumb"
+											src={work.thumb}
+											alt=""
+											loading="eager"
+											draggable="false"
+										/>
+										<span class="pop__label">{work.label}</span>
+									</span>
 								</a>
 							</li>
 						))}
 					</ol>
 				)}
-			</article>
+			</div>
 		</div>
 
 		{/* Same tab as the stack's, stood on the folder's trailing edge. Lying
 		    down it reads horizontally, along the top. */}
-		<span class="opening__tab">
+		{/* The tab is the way back out, the way it is the way in on the home
+		    page. Pressing it folds the volume up and files it. */}
+		<a class="opening__tab" href="/" data-opening-tab aria-label={`${label} 닫기`}>
 			<span class="opening__shoulder opening__shoulder--start"></span>
 			<span class="opening__tab-label">{label}</span>
 			<span class="opening__shoulder opening__shoulder--end"></span>
-		</span>
+		</a>
 
 		{/* The cover. Two faces on one hinge: the outside you have been looking
 		    at since the home page, and the inside you only see once it has gone
@@ -102,6 +152,10 @@ const { color, ink, label, title, summary, works } = Astro.props;
 		} catch {
 			// Private browsing and the like: the folder opens at its own size.
 		}
+
+		// Kept for the way out. Going back is this same move run backwards, and
+		// the surest way to land where the home page let go is to be told.
+		window.__vibeFoldArrival = record;
 
 		// No record means nobody clicked a folder to get here — a reload, a
 		// bookmark, a link. There is no turn to finish, so the scene is marked
@@ -237,20 +291,34 @@ const { color, ink, label, title, summary, works } = Astro.props;
 		border-radius: 0 var(--folder-radius) var(--folder-radius) 0;
 	}
 
-	/* The paper. Inset from the folder's edges on three sides and further from
-	   the trailing one, where the folder's own colour carries the tab — the
-	   proportion a sheet actually sits at inside a file. */
-	.opening__paper {
+	/* The contents, as one column: the sheet the volume is written on, and the
+	   works filed under it.
+
+	   Only as tall as what is in it: the column ends where the works end, and
+	   the folder's own stock carries on below. `bottom: auto` is what makes it
+	   hug — and it hugs from the first frame, so the height the folder grows to
+	   is a height that is already standing there to be measured.
+
+	   The whole of the folder's inside, on all four sides. The folder already
+	   stops growing at a measure of its own, so there is nothing for a second
+	   cap here to do — and a lead above the sheet only read as a gap the other
+	   three sides did not have. What shows of the folder is one even border,
+	   which is the inside's own padding and nothing added to it. */
+	.opening__sheet {
 		position: absolute;
-		/* Only as tall as what is written on it. The sheet is a sheet of paper,
-		   not a panel: it ends where the words end, and the folder's own stock
-		   carries on below. `bottom: auto` is what makes it hug — and it hugs
-		   from the first frame, so nothing changes height when the transition
-		   hands the page over. */
-		/* Even margins in a fixed measure, not a share of the folder: the folder's
-		   width is set to hug this sheet, so the two cannot both be derived from
-		   each other. */
-		inset: 3% 3.5rem auto 3.5rem;
+		inset: 0 0 auto 0;
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+		/* Held a hair behind the cover. Coplanar surfaces in one 3D context let
+		   the renderer interleave them; the contents can afford the depth
+		   because they sit inside the folder's edges, where a fraction of a
+		   pixel of scale has nothing to line up with. */
+		transform: translateZ(-1px);
+	}
+
+	/* The paper itself: the sheet the volume is written on. */
+	.opening__paper {
 		display: flex;
 		flex-direction: column;
 		gap: clamp(1.25rem, 3.5%, 2.5rem);
@@ -258,11 +326,6 @@ const { color, ink, label, title, summary, works } = Astro.props;
 		background: #f4f1ea;
 		color: #191919;
 		border-radius: 8px;
-		/* Held a hair behind the cover. Coplanar surfaces in one 3D context let
-		   the renderer interleave them; the paper can afford the depth because
-		   it sits inside the folder's edges, where a fraction of a pixel of
-		   scale has nothing to line up with. */
-		transform: translateZ(-1px);
 	}
 
 	.opening__copy {
@@ -329,8 +392,130 @@ const { color, ink, label, title, summary, works } = Astro.props;
 		font-weight: 600;
 	}
 
+	/* The works, stacked down the folder under the sheet. */
+	.opening__pile {
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	/* The window a piece of work arrives in: title bar, three lights, the thing
+	   itself underneath. */
+	.pop {
+		display: flex;
+		flex-direction: column;
+		/* The corner a window has now: wide, and the same all the way round. */
+		border-radius: 0.75rem;
+		/* Chrome the work sits in, not a panel bolted to it — light, faintly
+		   translucent, and blurring what is behind the window the way every
+		   surface on the system does. */
+		background: rgb(246 246 248 / 0.82);
+		color: #1c1c1e;
+		overflow: hidden;
+		backdrop-filter: blur(24px) saturate(180%);
+		-webkit-backdrop-filter: blur(24px) saturate(180%);
+		/* A hairline, a contact shadow, and the same halo as everything else
+		   floating over the page, so the desk reads as one set of things. */
+		box-shadow:
+			inset 0 0.5px 0 rgb(255 255 255 / 0.7),
+			0 0 0 0.5px rgb(0 0 0 / 0.22),
+			0 1px 2px rgb(0 0 0 / 0.08),
+			var(--glass-glow),
+			0 30px 70px -20px rgb(0 0 0 / 0.55);
+	}
+
+	.pop:focus-visible {
+		outline: 2px solid #0a84ff;
+		outline-offset: 2px;
+	}
+
+	/* The title bar: lights at the leading edge, the name in the middle. No
+	   strip of its own and no rule under it — the bar is the top of the window,
+	   and a divider only belongs there when something has scrolled under it. */
+	.pop__bar {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+	}
+
+	.pop__lights {
+		display: flex;
+		gap: 0.375rem;
+	}
+
+	.pop__light {
+		width: 0.6875rem;
+		height: 0.6875rem;
+		border-radius: 50%;
+		box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.12);
+	}
+
+	.pop__light--close {
+		background: #ff5f57;
+	}
+
+	.pop__light--min {
+		background: #febc2e;
+	}
+
+	.pop__light--zoom {
+		background: #28c840;
+	}
+
+	.pop__name {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		line-height: 1;
+		color: rgb(0 0 0 / 0.74);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	/* The window's contents: the work itself. */
+	.pop__canvas {
+		position: relative;
+		display: block;
+	}
+
+	/* The ratio is declared, so the window stands at its full height from the
+	   first frame — before the picture has arrived. That is what lets the
+	   folder be grown to hold the pile before it opens. */
+	.pop__thumb {
+		display: block;
+		width: 100%;
+		aspect-ratio: 16 / 10;
+		object-fit: cover;
+		background: #f1f1f1;
+		/* The one line in the window, where the chrome ends and the work starts. */
+		border-top: 0.5px solid rgb(0 0 0 / 0.08);
+	}
+
+	.pop__label {
+		position: absolute;
+		left: 0.5rem;
+		bottom: 0.5rem;
+		padding: 0.1875rem 0.4375rem;
+		border-radius: 0.375rem;
+		background: rgb(28 28 30 / 0.55);
+		color: #ffffff;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		line-height: 1;
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+	}
+
 	.opening__tab {
 		position: absolute;
+		color: inherit;
+		text-decoration: none;
+		cursor: pointer;
 		top: var(--folder-inset);
 		/* The quarter turn is about the tab's own top left corner, which swings
 		   it back across the sheet by its own height. Starting it one height
@@ -444,6 +629,8 @@ const { color, ink, label, title, summary, works } = Astro.props;
 	const scene = document.querySelector<HTMLElement>('[data-opening]');
 	const folder = document.querySelector<HTMLElement>('[data-opening-folder]');
 	const cover = document.querySelector<HTMLElement>('[data-opening-cover]');
+	const sheet = document.querySelector<HTMLElement>('[data-opening-sheet]');
+	const inner = document.querySelector<HTMLElement>('[data-opening-inner]');
 	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 	/** A length written in CSS, measured rather than parsed — the same trick the
@@ -457,7 +644,7 @@ const { color, ink, label, title, summary, works } = Astro.props;
 		return height;
 	}
 
-	if (scene && folder && cover) {
+	if (scene && folder && cover && sheet && inner) {
 		if (reduced.matches) {
 			// No scene, so the page it was standing in for is the page again.
 			delete document.documentElement.dataset.opening;
@@ -480,18 +667,60 @@ const { color, ink, label, title, summary, works } = Astro.props;
 			const openWidth = cssLength('--stage-open-w');
 			const closedWidth = folder.style.width;
 			folder.style.width = `${openWidth}px`;
-			const openHeight = folder.offsetHeight;
+
+			/** What the folder has to grow to. Not the folder's own box — that is
+			 *  the size it arrived at, and reading it back only ever returned the
+			 *  stage's fixed height, which is why the sheet used to be cut off at
+			 *  the folder's bottom edge and why the pile could only make room for
+			 *  itself after the cover had already swung.
+			 *
+			 *  It is the contents that are measured, at the width they will be
+			 *  read at: the whole column, sheet and works together, standing in
+			 *  the document with every window already at its full height. The
+			 *  thumbnails declare their ratio, so this is the true number before
+			 *  a single picture has loaded.
+			 *
+			 *  The column sits on the folder's stock with the same border all the
+			 *  way round, so the folder is its contents plus that border twice
+			 *  over.
+			 *
+			 *  The border is read from the stylesheet and not off a rect: the
+			 *  contents are held a hair behind the cover, and under the stage's
+			 *  perspective a rect comes back projected a fraction small. The
+			 *  length is what the CSS actually says. */
+			const inset = cssLength('--folder-inset');
+			const openHeight = Math.round(inset * 2 + sheet.offsetHeight);
+
 			folder.style.width = closedWidth;
 
-			/** Opened, the folder is taller than the screen, and growing about its
-			 *  own centre would push its top edge up under the navigation. Its top
-			 *  is the line the navigation's band ends on, and the rest of it runs
-			 *  off the bottom, where the page scrolls. */
+			/** Opened, the folder is taller than the screen. Its top is the line
+			 *  the navigation's band ends on, and the rest of it runs off the
+			 *  bottom, where the page scrolls.
+			 *
+			 *  Where it has to land is not a matter of taste: it is wherever the
+			 *  settle puts it a moment later, and any daylight between the two is
+			 *  a jump. So the same two numbers the settle uses are worked out
+			 *  here, and the flight is aimed at them.
+			 *
+			 *  It used to aim at a centre — the folder's middle brought to the
+			 *  middle of where it would end up. That holds only if a box grows
+			 *  about its centre, and this one does not: it is placed by its top
+			 *  left corner and grows down and to the right. While the open height
+			 *  was the same height it started at, the error was nothing; now that
+			 *  the folder grows to hold its contents, it was half the growth —
+			 *  the folder sank as it stretched and was snatched back up on the
+			 *  last frame. */
 			const headerHeight = cssLength('--stage-clear');
 
+			const tab = scene.querySelector<HTMLElement>('.opening__tab');
+			// Stood on the trailing edge, the tab's own height is the width it
+			// takes up beside the folder — and the two are centred together, or
+			// the tab hangs off the right and takes the page's margin with it.
+			const tabWidth = tab ? tab.getBoundingClientRect().width : 0;
+
 			const box = folder.getBoundingClientRect();
-			const centreNow = box.top + box.height / 2;
-			const openY = headerHeight + openHeight / 2 - centreNow;
+			const openY = headerHeight - box.top;
+			const openX = Math.round((scene.clientWidth - openWidth - tabWidth) / 2) - box.left;
 
 			const direct = scene.dataset.direct === 'true';
 			const timeline = gsap.timeline({ paused: direct });
@@ -500,7 +729,7 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				// Nothing was clicked to get here, so there is no turn to play. The
 				// folder is put straight into the state the turn would have left it
 				// in, and the page arrives instead.
-				gsap.set(folder, { y: openY, width: openWidth, height: openHeight });
+				gsap.set(folder, { x: openX, y: openY, width: openWidth, height: openHeight });
 				gsap.set(cover, { rotateY: -180 });
 			}
 
@@ -516,15 +745,22 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				//    the open width put on and taken off again before a frame was
 				//    drawn, so the number is the sheet's own and not a guess.
 				.to(folder, {
+					x: openX,
 					y: openY,
 					width: openWidth,
 					height: openHeight,
 					duration: 0.62,
 					ease: 'power3.inOut',
 				})
-				// 5. Only then does the cover swing: a full half turn to the left
-				//    about its spine, onto a folder that is already the size it will
-				//    be. One change of shape at a time.
+				// 5. Grown, the folder stops being a thing flying over the page and
+				//    becomes the page. This happens while the cover is still shut,
+				//    so whatever moves in the handover moves behind it: the cover
+				//    is opened onto contents that have already landed and come to
+				//    rest, never onto contents still finding their place.
+				.add(() => settle())
+				// 6. Only then does the cover swing: a full half turn to the left
+				//    about its spine, onto a folder that is already the size and in
+				//    the place it will be. One change of shape at a time.
 				.to(cover, { rotateY: -180, duration: 0.94, ease: 'power3.inOut' });
 
 			/** The transition ends and the page begins — in the same place, at the
@@ -539,21 +775,6 @@ const { color, ink, label, title, summary, works } = Astro.props;
 			 */
 			/** The transition is over; hand the folder back to the document. */
 			const settle = () => {
-				const paper = scene.querySelector<HTMLElement>('.opening__paper');
-				if (!paper) return;
-
-				const tab = scene.querySelector<HTMLElement>('.opening__tab');
-				// Turned onto the trailing edge, the tab's own height is the width
-				// it takes up beside the folder.
-				const tabWidth = tab ? tab.getBoundingClientRect().width : 0;
-				const folderBox = folder.getBoundingClientRect();
-				const paperBox = paper.getBoundingClientRect();
-				const inset = {
-					top: paperBox.top - folderBox.top,
-					left: paperBox.left - folderBox.left,
-					right: folderBox.right - paperBox.right,
-				};
-
 				gsap.set(folder, { clearProps: 'transform' });
 				Object.assign(folder.style, {
 					transform: 'none',
@@ -561,39 +782,60 @@ const { color, ink, label, title, summary, works } = Astro.props;
 					left: 'auto',
 					top: 'auto',
 					translate: 'none',
-					// Where it is *meant* to be, not where a rect says it is. The
-					// folder is centred by `left: 50%` and a `translate` of half
-					// its own width, and reading that back has turned out to
-					// depend on when the stylesheet lands: the dev server has its
-					// CSS in the document, production fetches a file, and on
-					// production the rect came back half a folder to the right —
-					// the 50% applied, the translate not yet. The numbers below
-					// are the two the transition was aiming at all along.
+					// Lengths, not the numbers those lengths happened to come to.
+					//
+					// The transition has to work in pixels — it is animating — but
+					// the page it hands over to does not, and a page that has been
+					// handed a set of frozen numbers stops answering the window.
+					// Dragging the browser narrower left the folder at whatever
+					// width the screen had been when the cover finished opening.
+					// So every one of these is given back as the expression the
+					// stylesheet would have used, and the folder goes on being
+					// measured from the viewport for as long as the page is open.
+					//
 					// The tab stands outside the folder's own box, on its trailing
 					// edge, so what has to be centred is the two together. Centred
 					// on the folder alone, the tab hangs off the right and takes
-					// the page's margin with it.
-					marginLeft: `${Math.round((scene.clientWidth - folderBox.width - tabWidth) / 2)}px`,
-					marginTop: `${Math.round(headerHeight)}px`,
-					width: `${folderBox.width}px`,
+					// the page's margin with it. The percentage is of the scene,
+					// which is the width the page actually has.
+					marginLeft: 'max(0px, calc((100% - var(--stage-open-w) - var(--tab-height)) / 2))',
+					marginTop: 'var(--stage-clear)',
+					width: 'var(--stage-open-w)',
+					// The contents are a flow child now, so the folder is exactly
+					// as tall as what is filed in it — and it re-measures itself
+					// when the copy reflows.
 					height: 'auto',
-					minHeight: `${folderBox.height}px`,
-					// The paper's margins would belong to the folder rather than to
-					// the space around it — a flow child's top margin collapses
-					// through a parent with no padding of its own, and the gap the
-					// paper had while it was positioned would simply vanish. Held
-					// as padding, it cannot collapse.
-					padding: `${inset.top}px ${inset.right}px ${inset.top}px ${inset.left}px`,
+					minHeight: '0',
+					// No padding here, whatever the temptation. The cover is laid
+					// over the folder at `inset: 0` and the tab stands at
+					// `left: 100%`, and both are read from the padding box: give
+					// the folder padding and the cover comes in off all four
+					// edges while the tab steps inward with it.
 				});
 
-				folder.appendChild(paper);
-				Object.assign(paper.style, {
+				// The inside face stops being a skin stretched over the folder and
+				// becomes the thing the folder is made of: it holds the contents,
+				// its own padding is the stock showing round them, and the folder
+				// is as tall as the two come to.
+				//
+				// The contents stay inside it rather than moving out beside it.
+				// Out there they would be coplanar with it — and two surfaces on
+				// the same plane in one 3D context get sorted however the renderer
+				// likes, which is why they used to be pushed a hair forward. A
+				// hair forward is also in front of the cover, and for the moment
+				// between the handover and the cover swinging, the contents showed
+				// straight through a folder that was still shut.
+				Object.assign(inner.style, {
 					position: 'static',
-					margin: '0',
-					// A hair in front of the sheet it now sits beside rather than
-					// inside. Coplanar surfaces in one 3D context get sorted
-					// arbitrarily, and the sheet was painting over the paper.
-					transform: 'translateZ(1px)',
+					display: 'block',
+					// The two pixels it stood proud of the cover by — see the rule.
+					marginLeft: '-2px',
+					width: 'calc(100% + 2px)',
+				});
+
+				Object.assign(sheet.style, {
+					position: 'static',
+					transform: 'none',
 				});
 
 				scene.dataset.settled = 'true';
@@ -601,7 +843,6 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				window.dispatchEvent(new CustomEvent('vibe-fold:opened'));
 			};
 
-			timeline.eventCallback('onComplete', settle);
 
 			/** Arrived without a folder being clicked. The turn and the opening
 			 *  belong to that click, so they are jumped rather than played, and
@@ -613,7 +854,6 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				timeline.kill();
 				settle();
 
-				const paper = folder.querySelector<HTMLElement>('.opening__paper');
 				const arrival = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
 				arrival.from(
@@ -629,14 +869,153 @@ const { color, ink, label, title, summary, works } = Astro.props;
 					0,
 				);
 
-				if (paper) {
-					arrival.from(paper, { y: '10rem', duration: 1 }, 0.1);
-				}
+				arrival.from(sheet, { y: '10rem', duration: 1 }, 0.1);
 			}
 
 			// And it stays there. The open folder is where the transition ends for
 			// now; nothing fades it out and the page underneath is not brought up.
-			
+
+			/* ── The way back ──────────────────────────────────────────────────
+			 *
+			 *  The tab put the volume on the screen; the tab takes it off again.
+			 *  Everything the way in did, in the order it did it, backwards: the
+			 *  cover swings shut on the contents, the folder shrinks to the size
+			 *  it was carried at and goes back to the middle of the screen, and
+			 *  the home page picks it up there and files it in the drawer.
+			 */
+			const RETURN = 'vibe-fold:return';
+			/** The page keeps 16px either side of a folder — the stage's own. */
+			const MARGIN = 16;
+
+			/** Where the folder has to be when the screen changes, in both the
+			 *  shape it has here and the shape the home page will hold it in.
+			 *
+			 *  If the home page handed it over, that hand-over is the answer:
+			 *  going back is the same move the other way, so it goes back to the
+			 *  rect it arrived on. Arrived some other way — a reload, a bookmark
+			 *  — there is nothing to reverse, and a closed folder at the stage's
+			 *  own size is put in the middle of the screen instead. */
+			const carried = () => {
+				const arrival = window.__vibeFoldArrival;
+				const tabSize = cssLength('--tab-height');
+				const page = document.documentElement.clientWidth;
+				const clear = cssLength('--stage-clear');
+
+				// The record is the folder lying down; this page holds it upright,
+				// so the two measurements swap — the same swap the arrival made.
+				let lyingW = arrival ? arrival.width : cssLength('--stage-w');
+				let lyingH = arrival ? arrival.height : cssLength('--stage-h');
+
+				/** Turned, the folder is as wide as it is tall, and the tab stands
+				 *  off the trailing edge out of the same room. It gives back only
+				 *  what it has to. */
+				const room = page - MARGIN * 2 - tabSize;
+				const shrink = Math.min(1, room / lyingH);
+				lyingW *= shrink;
+				lyingH *= shrink;
+
+				const centreX = page / 2 - tabSize / 2;
+				const centreY = Math.max(
+					window.innerHeight / 2,
+					clear + Math.max(lyingW, lyingH) / 2,
+				);
+
+				return {
+					// What this page animates to, upright.
+					left: centreX - lyingH / 2,
+					top: centreY - lyingW / 2,
+					width: lyingH,
+					height: lyingW,
+					// What the home page is told, lying down.
+					record: {
+						id: scene.dataset.flipId ?? '',
+						width: lyingW,
+						height: lyingH,
+						centreX,
+						centreY,
+					},
+				};
+			};
+
+			let leaving = false;
+
+			const foldBack = (href: string) => {
+				leaving = true;
+				// The flight is flown against the viewport, and the folder's own
+				// top is the line the navigation ends on. Both are only true at
+				// the top of the page.
+				window.scrollTo(0, 0);
+
+				const target = carried();
+
+				gsap
+					.timeline({
+						onComplete: () => {
+							try {
+								sessionStorage.setItem(
+									RETURN,
+									JSON.stringify({ ...target.record, at: Date.now() }),
+								);
+							} catch {
+								// Private browsing: the home page simply arrives.
+							}
+							window.location.href = href;
+						},
+					})
+					// 1. The cover swings shut — the last thing the way in did, and
+					//    so the first thing undone. What is filed inside goes back
+					//    under it before anything changes shape, which is also what
+					//    lets the contents reflow unseen when it does.
+					.to(cover, { rotateY: 0, duration: 0.94, ease: 'power3.inOut' })
+					// 2. Shut, it stops being the page and becomes a thing being
+					//    carried again — lifted out of the flow onto the exact rect
+					//    it was occupying, so nothing moves at the change.
+					.add(() => {
+						const box = folder.getBoundingClientRect();
+						// The folder is the only thing giving this page its length.
+						// Lifted out of the flow it takes that length with it, the
+						// page shrinks to a screenful, the scrollbar goes — and
+						// everything still on screen slides sideways by the width
+						// of it. The scene keeps the height the folder was giving
+						// it, so nothing under the flight moves.
+						scene.style.height = `${scene.offsetHeight}px`;
+						Object.assign(folder.style, {
+							position: 'absolute',
+							left: `${box.left}px`,
+							top: `${box.top}px`,
+							width: `${box.width}px`,
+							height: `${box.height}px`,
+							margin: '0',
+							zIndex: '40',
+						});
+					})
+					// 3. Back to the middle of the screen at the size it crossed at.
+					//    The turn belongs to the other page: it was picked up turned
+					//    and it is handed back turned, and the home page swings it
+					//    upright as it files it.
+					.to(folder, {
+						left: target.left,
+						top: target.top,
+						width: target.width,
+						height: target.height,
+						duration: 0.62,
+						ease: 'power3.inOut',
+					});
+			};
+
+			tab?.addEventListener('click', (event) => {
+				const mouse = event as MouseEvent;
+				// A modified click is a request for a new tab, not for this.
+				if (mouse.metaKey || mouse.ctrlKey || mouse.shiftKey || mouse.altKey) return;
+				if (mouse.button !== 0) return;
+				if (leaving) return;
+
+				const href = (tab as HTMLAnchorElement).href;
+				if (reduced.matches) return;
+
+				event.preventDefault();
+				foldBack(href);
+			});
 		}
 	}
 </script>

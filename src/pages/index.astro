@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import FolderStack from '../components/FolderStack.astro';
 import HomeIntro from '../components/HomeIntro.astro';
+import FolderReturn from '../components/FolderReturn.astro';
 import ClubMark from '../components/ClubMark.astro';
 import { getAllVolumes } from '../lib/content';
 
@@ -16,6 +17,16 @@ const volumes = getAllVolumes().filter((volume) => volume.status === 'published'
 
 <BaseLayout title="Vibe Fold" bodyClass="page-home">
 	<div class="home">
+		{/* Ahead of everything it hides.
+		    Whether the page is being come back to is settled by a script, and a
+		    script settles it where it stands: put at the foot of the page, it is
+		    reached after the drawer has been parsed, and the browser is free to
+		    paint a finished stack in the meantime — which showed as the folder
+		    flashing once before the way back took it. Up here it runs before
+		    there is a drawer to paint. It also has to come before HomeIntro,
+		    which stands down when it finds the flag this sets. */}
+		<FolderReturn phase="claim" />
+
 		<SiteHeader tagline={false} />
 
 		<section class="slogan" aria-label="Vibe Fold">
@@ -24,6 +35,12 @@ const volumes = getAllVolumes().filter((volume) => volume.status === 'published'
 		</section>
 
 		<FolderStack volumes={volumes} id="featured" />
+
+		{/* The instant the drawer exists and not a moment later — see the note in
+		    the component. The copy of the folder being brought home has to be on
+		    the screen in the page's first frame, or it blinks out across the
+		    change of page and back in again. */}
+		<FolderReturn phase="carry" />
 
 		{/* Whose archive this is. It used to be printed in the corner of the
 		    frontmost cover, where it belonged to one volume rather than to the

@@ -16,7 +16,12 @@
 	// Set on the element itself, before anything paints. A module script is
 	// deferred, and by the time one runs the page has already shown the slogan
 	// and the stack sitting in their finished positions.
-	document.documentElement.dataset.intro = 'pending';
+	// Not when the page is being come back to. FolderReturn runs just before
+	// this and claims the stack: a folder is flying in to be filed, and two
+	// entrances cannot both have the drawer.
+	if (!document.documentElement.dataset.returning) {
+		document.documentElement.dataset.intro = 'pending';
+	}
 </script>
 
 <style is:global>
@@ -207,7 +212,13 @@
 	};
 
 	// The slogan has to be measured to be split, and it cannot be measured until
-	// its font is the one it will be set in.
-	if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(play);
-	else play();
+	// its font is the one it will be set in. Unless the page is being come back
+	// to, in which case FolderReturn has the entrance and this one stands down.
+	if (root.dataset.returning) {
+		// nothing: the way back brings the stack and the slogan in itself.
+	} else if (document.fonts && document.fonts.status !== 'loaded') {
+		document.fonts.ready.then(play);
+	} else {
+		play();
+	}
 </script>
