@@ -79,6 +79,12 @@ const { color, ink, label, title, summary, works } = Astro.props;
     once at the size CSS gives it, then jumps. That jump is the flicker. */}
 <script is:inline>
 	(() => {
+		// The scene is taking the page over. Everything the page would have shown
+		// without it stands down now, before the first paint — it is the same
+		// content twice over, and the half of it that runs past the bottom of the
+		// scene was showing underneath as a band of colour with a pager on it.
+		document.documentElement.dataset.opening = 'true';
+
 		const KEY = 'vibe-fold:handoff';
 		let record = null;
 		try {
@@ -110,9 +116,24 @@ const { color, ink, label, title, summary, works } = Astro.props;
 		// so the two measurements swap.
 		folder.style.width = `${record.height}px`;
 		folder.style.height = `${record.width}px`;
-		folder.style.top = `calc(var(--stage-top) + ${record.height / 2}px)`;
+		// On the spot the last page left it on. The element is centred on its own
+		// `left`/`top` by a translate of half itself, so the two numbers are the
+		// centre of the rect the folder was holding when the screen changed.
+		if (typeof record.centreX === 'number') folder.style.left = `${record.centreX}px`;
+		if (typeof record.centreY === 'number') folder.style.top = `${record.centreY}px`;
 	})();
 </script>
+
+<style is:global>
+	/* Everything the volume page would have shown on its own — its title, its
+	   contents, its list of works — while the scene is the page. The header is
+	   left alone: the navigation keeps its band right through the transition.
+
+	   Not `display: none` on `.page` itself. The header lives inside it. */
+	html[data-opening] .page > *:not(.site-header) {
+		display: none;
+	}
+</style>
 
 <style>
 	.opening {
@@ -416,6 +437,8 @@ const { color, ink, label, title, summary, works } = Astro.props;
 
 	if (scene && folder && cover) {
 		if (reduced.matches) {
+			// No scene, so the page it was standing in for is the page again.
+			delete document.documentElement.dataset.opening;
 			scene.remove();
 			window.dispatchEvent(new CustomEvent('vibe-fold:opened'));
 		} else {
@@ -439,16 +462,10 @@ const { color, ink, label, title, summary, works } = Astro.props;
 			folder.style.width = closedWidth;
 
 			/** Opened, the folder is taller than the screen, and growing about its
-			 *  own centre would push its top edge up under the navigation — the
-			 *  paper's first lines end up behind the wordmark. Its top is set below
-			 *  the header with a band of air between them, and the rest of it runs
+			 *  own centre would push its top edge up under the navigation. Its top
+			 *  is the line the navigation's band ends on, and the rest of it runs
 			 *  off the bottom, where the page scrolls. */
-			const probe = document.createElement('div');
-			probe.style.cssText =
-				'position:fixed;left:0;top:0;width:0;height:calc(var(--h-header) + var(--space-hero-y));visibility:hidden';
-			document.body.appendChild(probe);
-			const headerHeight = probe.getBoundingClientRect().height;
-			probe.remove();
+			const headerHeight = cssLength('--stage-clear');
 
 			const centreNow = folder.getBoundingClientRect().top + folder.offsetWidth / 2;
 			const openY = headerHeight + openHeight / 2 - centreNow;
@@ -477,7 +494,17 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				//    finishes on its trailing edge. Nothing about its size changes
 				//    on the way round — a folder this wide stands taller than the
 				//    screen, and it is allowed to run off the top and the bottom.
-				.to(folder, { rotation: 0, '--sheen-angle': '180deg', duration: 0.78, ease: 'power3.inOut' })
+				.to(folder, {
+					rotation: 0,
+					'--sheen-angle': '180deg',
+					// It lies out to its reading width on the way round, not after.
+					// Growing while the cover swings put a second change of shape
+					// on top of the one the eye is already following, and the folder
+					// read as being stretched after it had finished opening.
+					width: openWidth,
+					duration: 0.78,
+					ease: 'power3.inOut',
+				})
 				// 5. The cover opens to the left about its spine, a full half turn,
 				//    and comes to rest face down beside the folder. The folder
 				//    moves with it: a spread twice the width of a closed folder
@@ -485,13 +512,9 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				//    the room the turn gives it so the paper reads at its own
 				//    size rather than as a column on a coloured field.
 				.to(cover, { rotateY: -180, duration: 0.94, ease: 'power3.inOut' }, '>0.08')
-				// It only moves: down to where its top clears the header, and not an
-				// inch wider than it already is.
-				.to(
-					folder,
-					{ y: openY, width: openWidth, duration: 0.94, ease: 'power3.inOut' },
-					'<',
-				);
+				// It only moves now: down to where its top clears the navigation's
+				// band. It is already the width it opens at.
+				.to(folder, { y: openY, duration: 0.94, ease: 'power3.inOut' }, '<');
 
 			/** The transition ends and the page begins — in the same place, at the
 			 *  same size, so there is nothing to see in the change.

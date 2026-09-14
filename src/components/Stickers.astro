@@ -524,7 +524,14 @@ const files = Array.from({ length: Math.min(count, 3) }, (_, index) => `Ch.${ind
 		const place = (sticker: HTMLElement) => {
 			const width = sticker.offsetWidth;
 			const height = sticker.offsetHeight;
-			const header = parseFloat(getComputedStyle(document.documentElement).fontSize) * 5;
+			// The navigation's band, read from the same token the folder uses.
+			// Nothing but the navigation goes in it.
+			const probe = document.createElement('div');
+			probe.style.cssText =
+				'position:fixed;left:0;top:0;width:0;height:var(--stage-clear);visibility:hidden';
+			document.body.appendChild(probe);
+			const header = probe.getBoundingClientRect().height;
+			probe.remove();
 
 			const top =
 				window.scrollY +

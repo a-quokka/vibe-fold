@@ -87,7 +87,13 @@ export function makeDraggable(elements: HTMLElement[], options: DragOptions = {}
  *  band of the screen and lands somewhere in it.
  */
 export function scatter(elements: HTMLElement[], options: { spread?: number } = {}): void {
-	const header = parseFloat(getComputedStyle(document.documentElement).fontSize) * 7;
+	// The navigation's band. Nothing scattered lands in it.
+	const probe = document.createElement('div');
+	probe.style.cssText =
+		'position:fixed;left:0;top:0;width:0;height:var(--stage-clear);visibility:hidden';
+	document.body.appendChild(probe);
+	const header = probe.getBoundingClientRect().height;
+	probe.remove();
 	const margin = 24;
 	const spread = options.spread ?? 1;
 

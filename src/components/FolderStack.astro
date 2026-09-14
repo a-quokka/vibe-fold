@@ -114,7 +114,10 @@ const folders = volumes.map((volume, index) => ({
 
 <style>
 	.folders {
-		padding: var(--space-archive-y) var(--page-pad) 0;
+		/* Barely any air above the tabs. The band between the slogan and the
+		   drawer belongs to the slogan, and two lots of it read as a gap nobody
+		   put there on purpose. */
+		padding: var(--space-hero-gap) var(--page-pad) 0;
 		/* The folders pushed down the stack travel past the bottom of the section.
 		   Left unclipped that counts as scrollable overflow and the page grows a
 		   screenful every time a label is hovered. `clip` keeps the section from

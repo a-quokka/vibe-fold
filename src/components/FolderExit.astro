@@ -57,13 +57,20 @@
 		 *  a folder being picked up off a desk does not get smaller on the way to
 		 *  the eye, and the only size it changes is the one it gains when it is
 		 *  opened out on the other side. */
+		/** Centred, but never into the navigation's band. Wherever it stops is
+		 *  where the next page has to start, and the quarter turn happens on that
+		 *  spot: turned, the folder is as tall as it is now wide, so the half it
+		 *  has to keep clear of the band is the larger of the two. What that
+		 *  pushes past the bottom of the screen goes past the bottom of the
+		 *  screen — there is nothing down there to protect. */
+		const clear = cssLength('--stage-clear');
+		const turned = Math.max(from.width, from.height) / 2;
+		const centreY = Math.max(window.innerHeight / 2, clear + turned);
 		const to = {
 			width: from.width,
 			height: from.height,
 			left: (window.innerWidth - from.width) / 2,
-			// Not centred: hung from the top, with the navigation's band left
-			// clear above it. What hangs below the screen hangs below the screen.
-			top: cssLength('--stage-top'),
+			top: centreY - from.height / 2,
 		};
 
 		try {
@@ -71,10 +78,14 @@
 				HANDOFF,
 				JSON.stringify({
 					id: folder.dataset.flipId ?? '',
-					// What it is holding when the screen changes — the size it
-					// flew to, not the size it set off from.
+					// What it is holding when the screen changes, and where on the
+					// screen it is holding it. The next page puts a folder down on
+					// that exact spot, so the change of page has nothing in it to
+					// see.
 					width: to.width,
 					height: to.height,
+					centreX: to.left + to.width / 2,
+					centreY: to.top + to.height / 2,
 					at: Date.now(),
 				}),
 			);
@@ -98,8 +109,13 @@
 			transition: none;
 			pointer-events: none;
 		`;
+		/** Parked, not shown. A clone on `document.body` sits above the whole
+		 *  stack whatever its z-index — it is in another stacking context — so a
+		 *  folder taken from the back of the drawer would jump in front of every
+		 *  folder still standing ahead of it. The original stays where it is,
+		 *  at its own depth, until those have left. */
+		proxy.style.visibility = 'hidden';
 		document.body.appendChild(proxy);
-		folder.style.visibility = 'hidden';
 
 		// The stack's own transitions run at 1300ms. Left in place they would lag
 		// a frame behind every value the timeline writes.
@@ -115,6 +131,8 @@
 
 		// 1. Everything else leaves. The folders drop out of the bottom of the
 		//    stack — the section clips them — and the tagline fades off the top.
+		//    The chosen folder does not move yet: it is still the one in the
+		//    drawer, and the ones ahead of it travel over it as they go.
 		timeline
 			.to(
 				others,
@@ -127,24 +145,31 @@
 				0,
 			)
 			.to('.slogan', { opacity: 0, y: -32, duration: 0.5, ease: 'power2.in' }, 0)
+			// The stack is clear. From here the folder is a thing being carried
+			// rather than a thing standing in a drawer, so the clone takes over.
+			.call(() => {
+				proxy.style.visibility = '';
+				folder.style.visibility = 'hidden';
+			})
 			// What is printed on the cover goes early: the sheet is about to change
 			// shape under it, and copy reflowing mid-flight is the one thing that
 			// gives the move away as a resize.
 			.to(
 				proxy.querySelectorAll('.folder__summary, .folder__colophon, .folder__heading'),
 				{ opacity: 0, duration: 0.28, ease: 'power2.out' },
-				0,
+				'<',
 			)
-			// 2. The folder takes the tagline's place — moving, not resizing.
+			// 2. The folder comes to the middle of the screen and waits there for
+			//    the page to change under it.
 			.to(
 				proxy,
 				{
 					left: to.left,
 					top: to.top,
-					duration: 0.86,
+					duration: 0.72,
 					ease: 'power3.inOut',
 				},
-				0.14,
+				'<',
 			);
 	}
 

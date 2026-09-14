@@ -89,7 +89,12 @@
 	 * the tagline's own size, not to the viewport alone. A flat 62svh on a tall
 	 * narrow window left the sentence stranded in a field of black; eleven lines
 	 * of its own type is the same proportion the wide layout lands on. */
-	--space-slogan-min-h: min(62svh, calc(var(--text-slogan) * 11));
+	--space-slogan-min-h: min(44svh, calc(var(--text-slogan) * 7));
+	/* The band between the slogan and the top of the drawer. The slogan sits
+	 * centred in its own box above this, so what the eye reads as the gap is
+	 * this plus whatever that centring leaves under the last line — about 150px
+	 * together at a desktop width. */
+	--space-hero-gap: 2.375rem;
 	/* Reference sets its mark at 71px tall. Ours is a wider 35:25 lockup, so it
 	   matches on height and lands a little wider. */
 	--size-brand-mark: clamp(1.625rem, 2.6vw, 2.125rem);
@@ -214,11 +219,23 @@
 	 * folder arrives low and what falls past the bottom of the screen falls past
 	 * the bottom of the screen. */
 	--stage-top: 31.25rem;
+	/* The band across the top of every page that belongs to the navigation and
+	 * to nothing else. The wordmark and the links sit in it; the folder, the
+	 * sheet, the work windows and the stickers all start below it. It is wider
+	 * than the header needs — that is the point: the header has air around it
+	 * rather than a thing pressed against its underside. */
+	--stage-clear: 12.5rem;
 	/* Opened, the folder lies out: the sheet inside it is the measure the volume
 	 * is read at, and that measure is a page width, not a folder's. The folder
 	 * grows to hold it — 7rem of its own stock around the sheet, the trailing
 	 * side carrying the tab. Closed it is --stage-w; this is what it opens to. */
-	--stage-paper-w: min(80rem, calc(100vw - 12rem));
+	/* 760px of sheet, and never wider. Below the width that allows it the
+	 * folder gives way instead of the margin: the page keeps 16px on each side
+	 * of the folder at every size, and the sheet inside takes what is left after
+	 * the folder's own 3.5rem of stock on either hand. What the opened cover
+	 * throws past the edge of the screen is allowed past the edge of the screen;
+	 * this is about the folder, not about the spread. */
+	--stage-paper-w: min(47.5rem, calc(100vw - 9rem));
 	--stage-open-w: calc(var(--stage-paper-w) + 7rem);
 }
 
