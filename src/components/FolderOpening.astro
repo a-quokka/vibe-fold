@@ -491,7 +491,7 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				// Nothing was clicked to get here, so there is no turn to play. The
 				// folder is put straight into the state the turn would have left it
 				// in, and the page arrives instead.
-				gsap.set(folder, { y: openY, width: openWidth });
+				gsap.set(folder, { y: openY, width: openWidth, height: openHeight });
 				gsap.set(cover, { rotateY: -180 });
 			}
 
@@ -500,17 +500,23 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				//    and shut — so the change of page is not the same instant as the
 				//    change of shape.
 				.to({}, { duration: 0.32 })
-				// 4. The cover opens to the left about its spine, a full half turn,
-				//    and comes to rest face down beside the folder.
-				.to(cover, { rotateY: -180, duration: 0.94, ease: 'power3.inOut' })
-				// The folder lies out as it opens: down to where its top clears the
-				// navigation's band, and out to the width the sheet is read at. A
-				// spread cannot stand where the shut folder stood.
-				.to(
-					folder,
-					{ y: openY, width: openWidth, duration: 0.94, ease: 'power3.inOut' },
-					'<',
-				);
+				// 4. The folder takes the shape of what is inside it before anything
+				//    is shown: it lies out to the width the sheet is read at and
+				//    grows to the height that sheet turned out to need, and settles
+				//    under the navigation's band. The measuring happened above, with
+				//    the open width put on and taken off again before a frame was
+				//    drawn, so the number is the sheet's own and not a guess.
+				.to(folder, {
+					y: openY,
+					width: openWidth,
+					height: openHeight,
+					duration: 0.62,
+					ease: 'power3.inOut',
+				})
+				// 5. Only then does the cover swing: a full half turn to the left
+				//    about its spine, onto a folder that is already the size it will
+				//    be. One change of shape at a time.
+				.to(cover, { rotateY: -180, duration: 0.94, ease: 'power3.inOut' });
 
 			/** The transition ends and the page begins — in the same place, at the
 			 *  same size, so there is nothing to see in the change.

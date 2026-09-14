@@ -1,6 +1,5 @@
 ---
 import FolderExit from '../components/FolderExit.astro';
-import SelectionHandles from '../components/SelectionHandles.astro';
 import Guestbook from '../components/Guestbook.astro';
 import '../styles/global.css';
 
@@ -76,7 +75,6 @@ const shareImage = new URL(image, Astro.site);
 	<body class={bodyClass}>
 		<slot />
 		<FolderExit />
-		<SelectionHandles />
 		<Guestbook />
 	</body>
 </html>

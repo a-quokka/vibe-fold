@@ -55,6 +55,9 @@
 
 	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+	/** Set by the split, called when the timeline is done. */
+	let restore: (() => void) | null = null;
+
 	/** Wrap every character in a clipped box of its own and hand back the
 	 *  characters, grouped into the lines they actually landed on. Measured
 	 *  rather than declared: the slogan is balanced by the browser, so where it
@@ -62,6 +65,13 @@
 	const splitLines = (element: HTMLElement): HTMLElement[][] => {
 		const text = element.textContent ?? '';
 		element.textContent = '';
+		// Put back when the entrance is over. Every letter is its own
+		// inline-block while the animation runs, and a selection drawn across
+		// them comes out as a row of separate boxes with gaps and steps in it
+		// — the browser highlights each box, not the line.
+		restore = () => {
+			element.textContent = text;
+		};
 
 		const chars: HTMLElement[] = [];
 		text.split(/(\s+)/).forEach((token) => {
@@ -113,7 +123,10 @@
 		}
 
 		const lines = title ? splitLines(title) : [];
-		const timeline = gsap.timeline({ defaults: { ease: 'power4.out' } });
+		const timeline = gsap.timeline({
+			defaults: { ease: 'power4.out' },
+			onComplete: () => restore?.(),
+		});
 
 		if (stack) gsap.set(stack, { opacity: 1 });
 
