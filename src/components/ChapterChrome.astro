@@ -1,7 +1,7 @@
 ---
 import BrandMark from './BrandMark.astro';
 import type { Chapter, Volume } from '../lib/content';
-import { chapterHref, formatChapterLabel } from '../lib/content';
+import { chapterHref } from '../lib/content';
 
 interface Props {
 	volume: Volume;
@@ -11,9 +11,11 @@ interface Props {
 
 const { volume, prev, next } = Astro.props;
 
+/** What stands under Prev and Next: the name of the work, and nothing else.
+ *  The number is filing, not a title, and a clipped first line of somebody's
+ *  description reads as a sentence cut off rather than as a description. */
 function metaLine(chapter: Chapter): string {
-	const snippet = chapter.description.trim().split(/\s+/).slice(0, 6).join(' ');
-	return `${formatChapterLabel(chapter.order, chapter.title)} - ${snippet}`;
+	return chapter.title;
 }
 ---
 
@@ -42,7 +44,6 @@ function metaLine(chapter: Chapter): string {
 	<a class="chapter-chrome__brand" href="/">
 		<BrandMark />
 		<span class="visually-hidden">Vibe Fold</span>
-		<span class="chapter-chrome__tagline">We publish visual stories that move the world</span>
 	</a>
 
 	<div class="chapter-chrome__side chapter-chrome__side--next">
@@ -122,7 +123,10 @@ function metaLine(chapter: Chapter): string {
 		align-items: flex-start;
 		justify-content: center;
 		gap: 0.625rem;
-		padding: var(--space-hero-y) var(--page-pad) 0;
+		/* Its own measure, not the hero's. This bar stands over somebody else's
+		   work and wants to take as little of the top of it as it can; the hero's
+		   breathing room is for a page that begins with a slogan. */
+		padding: 1.25rem var(--page-pad) 0;
 		pointer-events: none;
 		color: var(--color-chrome);
 	}
@@ -186,13 +190,6 @@ function metaLine(chapter: Chapter): string {
 		text-align: center;
 	}
 
-	.chapter-chrome__tagline {
-		font-size: var(--text-meta);
-		font-weight: 400;
-		line-height: var(--lh-tight);
-		white-space: nowrap;
-	}
-
 	@media (max-width: 900px) {
 		.chapter-chrome {
 			flex-wrap: wrap;
@@ -204,8 +201,7 @@ function metaLine(chapter: Chapter): string {
 			flex: 1 1 100%;
 		}
 
-		.chapter-chrome__meta,
-		.chapter-chrome__tagline {
+		.chapter-chrome__meta {
 			display: none;
 		}
 

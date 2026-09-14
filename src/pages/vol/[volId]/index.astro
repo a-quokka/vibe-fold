@@ -221,7 +221,10 @@ const title = volume.example ? `${volume.title} (Example)` : volume.title;
 	.volume__summary {
 		display: grid;
 		gap: 1em;
-		max-width: 44rem;
+		/* The paper's own margins are the measure. There were two copies of this
+		   block — one the transition draws and one the settled page draws — and a
+		   width set on only one of them shows as the text reflowing the moment
+		   the folder hands over. */
 		padding: 0 var(--page-pad);
 		font-size: var(--text-body);
 		line-height: var(--lh-body);

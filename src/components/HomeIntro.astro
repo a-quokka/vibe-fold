@@ -41,21 +41,24 @@
 		overflow-clip-margin: 60vh;
 	}
 
-	/* Splitting into letters makes every letter a break opportunity, and the
-	   slogan starts wrapping mid-word. The word is what holds together. */
+	/* The word rises from behind its own edge rather than from nothing.
+	 *
+	 * The box is drawn around the word and not around each letter, and that is
+	 * a measurement decision rather than a stylistic one. A box per letter
+	 * rounds every letter's advance to a whole pixel and cuts the kerning
+	 * between it and its neighbour; across this line that came to 3.5px of
+	 * extra width, which the slogan gave back in one visible jump the moment
+	 * the plain text was restored. Per word the line measures the same to a
+	 * hundredth of a pixel, because the kerning that matters all happens
+	 * inside a word. */
 	.slogan__word {
-		display: inline-block;
-		white-space: nowrap;
-	}
-
-	/* The letter rises from behind its own edge rather than from nothing. */
-	.slogan__char {
 		display: inline-block;
 		overflow: hidden;
 		vertical-align: bottom;
+		white-space: nowrap;
 	}
 
-	.slogan__char > span {
+	.slogan__word > span {
 		display: inline-block;
 		will-change: transform;
 	}
@@ -74,50 +77,49 @@
 	/** Set by the split, called when the timeline is done. */
 	let restore: (() => void) | null = null;
 
-	/** Wrap every character in a clipped box of its own and hand back the
-	 *  characters, grouped into the lines they actually landed on. Measured
-	 *  rather than declared: the slogan is balanced by the browser, so where it
-	 *  breaks depends on the width it was given. */
+	/** Wrap every word in a clipped box of its own and hand back the words,
+	 *  grouped into the lines they actually landed on. Measured rather than
+	 *  declared: the slogan is balanced by the browser, so where it breaks
+	 *  depends on the width it was given.
+	 *
+	 *  A line rises as one piece, so the split only has to be fine enough to
+	 *  tell the lines apart — and the word is the smallest unit that can be
+	 *  boxed without changing what the line measures. */
 	const splitLines = (element: HTMLElement): HTMLElement[][] => {
 		const text = element.textContent ?? '';
 		element.textContent = '';
-		// Put back when the entrance is over. Every letter is its own
-		// inline-block while the animation runs, and a selection drawn across
-		// them comes out as a row of separate boxes with gaps and steps in it
-		// — the browser highlights each box, not the line.
+		// Put back when the entrance is over. Every word is its own inline-block
+		// while the animation runs, and a selection drawn across them comes out
+		// as a row of separate boxes — the browser highlights each box, not the
+		// line.
 		restore = () => {
 			element.textContent = text;
 		};
 
-		const chars: HTMLElement[] = [];
+		const words: HTMLElement[] = [];
 		text.split(/(\s+)/).forEach((token) => {
-			if (token === '' ) return;
+			if (token === '') return;
 			if (/^\s+$/.test(token)) {
 				element.append(token);
 				return;
 			}
 
-			const word = document.createElement('span');
-			word.className = 'slogan__word';
-			for (const character of token) {
-				const mask = document.createElement('span');
-				mask.className = 'slogan__char';
-				const inner = document.createElement('span');
-				inner.textContent = character;
-				mask.append(inner);
-				word.append(mask);
-				chars.push(inner);
-			}
-			element.append(word);
+			const mask = document.createElement('span');
+			mask.className = 'slogan__word';
+			const inner = document.createElement('span');
+			inner.textContent = token;
+			mask.append(inner);
+			element.append(mask);
+			words.push(inner);
 		});
 
 		const lines = new Map<number, HTMLElement[]>();
-		chars.forEach((char) => {
-			// Rounded: characters on one line differ by a fraction of a pixel.
-			const top = Math.round(char.getBoundingClientRect().top);
+		words.forEach((word) => {
+			// Rounded: words on one line differ by a fraction of a pixel.
+			const top = Math.round(word.getBoundingClientRect().top);
 			const line = lines.get(top);
-			if (line) line.push(char);
-			else lines.set(top, [char]);
+			if (line) line.push(word);
+			else lines.set(top, [word]);
 		});
 
 		return Array.from(lines.entries())

@@ -426,9 +426,44 @@
 			});
 		};
 
-		if (onVolume) {
+		/** Not before the folder has opened.
+		 *
+		 *  Notes are placed against the window, and on a volume page the window
+		 *  is busy: a folder flies in, grows and swings open over it. A note
+		 *  dropped during that lands on a page whose measurements are still
+		 *  changing, and it reads as litter thrown across the transition rather
+		 *  than as something left on the paper.
+		 *
+		 *  The transition holds `data-opening` on the root for as long as it is
+		 *  running. Arriving without one — a refresh, a bookmark — there is no
+		 *  attribute and nothing to wait for. */
+		const lay = () => {
 			opener.hidden = false;
 			notes.forEach((note) => drop(note, true));
+		};
+
+		if (onVolume) {
+			if (document.documentElement.dataset.opening === undefined) {
+				lay();
+			} else {
+				const watcher = new MutationObserver(() => {
+					if (document.documentElement.dataset.opening !== undefined) return;
+					watcher.disconnect();
+					window.clearTimeout(fallback);
+					lay();
+				});
+				watcher.observe(document.documentElement, {
+					attributes: true,
+					attributeFilter: ['data-opening'],
+				});
+
+				// However the transition ends — finished, cut short, never started
+				// because the frame clock never ran — the notes are laid out.
+				const fallback = window.setTimeout(() => {
+					watcher.disconnect();
+					lay();
+				}, 4000);
+			}
 		}
 
 		let toastTimer = 0;
