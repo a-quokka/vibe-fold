@@ -3,6 +3,8 @@ slug: untitled
 title: Untitled
 creator: your-handle
 description: |
-  One or two short paragraphs describing your interactive artwork.
-  Keep this text for the volume grid and prev/next chrome.
+  첫 문장에 이 작품이 무엇인지 적습니다.
+
+  이어서 인상과 내용을 짧게 씁니다. 30~150자, 1~2문단.
+# 가로 3:2 ~ 16:10. 세로를 넣으면 카드에서 위아래가 잘립니다.
 thumbnail: thumb.svg

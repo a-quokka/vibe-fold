@@ -1,92 +1,275 @@
-# Contributing a chapter
+# VIBE FOLD 작품 제출 가이드
 
-Vibe Fold chapters are **self-contained interactive artworks**. Contributors add a folder via GitHub pull request. The site shell (home, volume pages, prev/next chrome) is maintained by editors — you only touch your chapter directory.
+작품 한 편은 폴더 하나입니다. 제작자는 완성된 폴더 하나를 Pull Request로 올리고, 편집부가 게재 여부와 순서를 정합니다.
 
-## Quick start
+`meta.yaml`에 적는 값의 의미는 [ARTWORK.md](./ARTWORK.md)에 있습니다. 이 문서는 **작품을 어떻게 만들고 어떻게 올리는지**를 다룹니다.
 
-1. Copy the template:
+---
+
+## 1. 폴더 만들기
+
+최신 `main`에서 작품 전용 브랜치를 땁니다.
 
 ```bash
-cp -R content/_templates/ch-untitled \
-  content/vol-01-seolhwa/ch-my-piece
+git fetch origin main
+git switch main
+git pull --ff-only origin main
+git switch -c artwork/my-piece
 ```
 
-2. Edit `meta.yaml`:
-   - `slug` — URL-safe kebab-case
-   - `title`, `author`, `summary`, `thumb`
-   - Folder name should match `ch-{slug}`
-   - Chapter order is **not** set here. An editor adds your folder name to that volume's `volume.yaml` `chapters:` list.
+템플릿을 복사합니다. 아래 `vol-01-seolhwa`와 `my-piece`는 예시이니 편집부가 안내한 볼륨과 자기 slug로 바꾸세요.
 
-3. Replace `index.html` (and assets) with your artwork.
-4. Replace `thumb.svg` / `thumb.jpg` (portrait ~3:4 works best).
-5. Open a PR that only includes your chapter folder (unless an editor asked you to change volume metadata).
+```bash
+cp -R content/_templates/ch-untitled content/vol-01-seolhwa/ch-my-piece
+```
 
-## Chapter contract
+```text
+content/
+├── _templates/ch-untitled/     ← 복사할 것
+└── vol-01-seolhwa/
+    ├── volume.yaml             ← 편집부가 관리. 건드리지 않습니다
+    ├── ch-seirenui-norae/      ← 이미 실린 작품
+    └── ch-my-piece/            ← 새로 올릴 자리
+```
 
-Required files inside `content/<volume>/<chapter>/`:
+이름 규칙은 하나뿐입니다. **`slug` 앞에 `ch-`를 붙인 것이 `id`이자 폴더명**입니다.
 
-| File | Purpose |
-|------|---------|
-| `meta.yaml` | Listing + chrome metadata |
-| `index.html` | Entrypoint loaded in an iframe |
-| thumb file referenced by `meta.yaml` | Volume grid thumbnail |
+| | |
+| --- | --- |
+| 쓸 수 있는 글자 | 소문자 영문, 숫자, 하이픈 |
+| 쓸 수 없는 글자 | 공백, 한글, 대문자, 밑줄, 마침표 |
+| 맞춰야 할 것 | `slug: my-piece` → `id: ch-my-piece` → 폴더 `ch-my-piece` |
+| 순번 | 붙이지 않습니다. `ch-03-my-piece`가 아니라 `ch-my-piece` |
 
-`meta.yaml` fields:
+작품 순서는 편집부가 `volume.yaml`에서 정합니다. `meta.yaml`에 순서를 적는 칸은 없습니다.
+
+## 2. 폴더 안에 있어야 할 것
+
+| 파일 | | 설명 |
+| --- | :---: | --- |
+| `meta.yaml` | 필수 | 작품 정보 |
+| `index.html` | 필수 | iframe이 불러오는 진입점 |
+| 썸네일 | 필수 | `meta.yaml`의 `thumbnail`이 가리키는 파일 |
+| `assets/` | | 이미지·사운드·폰트·스크립트 |
+
+하위 구조는 자유입니다. 번들러를 썼다면 **실행에 필요한 최종 산출물만** 넣고 `node_modules`와 빌드 찌꺼기는 빼 주세요.
+
+## 3. `meta.yaml`
 
 ```yaml
 id: ch-my-piece
 slug: my-piece
-title: My Piece
-author: your-handle   # @ is optional; UI adds it
-summary: |
-  Short description for the volume page and prev/next labels.
-thumb: thumb.svg
+title: 작품 제목
+creator: your-name
+thumbnail: thumb.jpg
+description: |
+  첫 문장에 이 작품이 무엇인지 적습니다.
+
+  이어서 인상과 내용을 짧게 씁니다.
+
+# 아래는 모두 선택입니다. 없으면 통째로 지웁니다.
+shareImage: share.jpg
+favicon: favicon.png
+links:
+  github: https://github.com/your-name
 ```
 
-Editors own chapter order in `volume.yaml`. The list is 1-based (`Ch.1`, `Ch.2`, …) and is the only source of truth:
+- **`creator`** — `@`는 붙이지 않습니다. 화면에서 자동으로 붙습니다. 공동 제작은 `Yuja × Nova`처럼 한 문자열로.
+- **`description`** — 일반 텍스트입니다. 마크다운과 HTML은 그려지지 않습니다. 빈 줄로 문단을 나눕니다. **작품 카드에 전문이 그대로 노출되므로 30~150자, 1~2문단**을 권합니다. 앞부분이 검색 결과와 공유 카드에도 쓰이니 첫 문장에 핵심을 두세요.
+- **`links`** — `https://`로 시작하는 완전한 URL만. `@handle`이나 `github.com/name` 같은 축약형은 받지 않습니다.
 
-```yaml
-chapters:
-  - ch-first-piece
-  - ch-my-piece
-  - ch-another-piece
+각 필드의 자세한 규칙은 [ARTWORK.md](./ARTWORK.md)에 있습니다.
+
+## 4. 썸네일은 가로입니다
+
+**가로 3:2 ~ 16:10.** 세로나 정사각형은 위아래가 크게 잘립니다.
+
+썸네일이 그려지는 자리는 두 곳이고 둘 다 가로입니다.
+
+| 어디 | 크기 |
+| --- | --- |
+| 볼륨 페이지 작품 카드 | 152~223 × 128~168px (`object-fit: cover`, 위에서 30% 지점 기준) |
+| 폴더가 펼쳐질 때 뜨는 창 | 16 : 10 |
+
+**152px 폭에서도 무엇인지 읽히는지** 확인하세요. 세부 묘사보다 한눈에 들어오는 인상 쪽이 잘 먹습니다.
+
+첫 작품의 썸네일은 **볼륨 커버로도 쓰입니다.**
+
+## 5. 작품이 도는 자리
+
+작품은 `<iframe sandbox="allow-scripts" allow="autoplay">` 안에서 돕니다. 여기서 오는 제약과 허용이 이 문서에서 가장 중요합니다.
+
+### 에셋은 전부 폴더 안에
+
+- 이미지·사운드·폰트·스크립트·데이터를 작품 폴더에 넣으세요.
+- `assets/image.png` 또는 `./assets/image.png`처럼 **상대경로**를 씁니다.
+- `/assets/image.png`처럼 `/`로 시작하면 사이트 루트를 가리킵니다. 쓰지 마세요.
+- CDN, 원격 폰트, 외부 API, `fetch`, WebSocket, 외부 로깅을 쓰지 마세요.
+- 트래킹·분석 스크립트와 개인정보 입력·수집 기능을 넣지 마세요.
+
+### 쓸 수 없는 것
+
+sandbox가 막습니다. 의존하면 작품이 조용히 망가집니다.
+
+- `localStorage`, `sessionStorage`, 쿠키 → **상태는 메모리에.** 새로고침하면 처음으로 돌아가는 것이 정상입니다.
+- `alert`, `confirm`, `prompt`
+- `window.open`, 폼 전송, 전체화면, 포인터 락
+- 부모 페이지의 DOM이나 변수 읽기·쓰기
+
+### 소리
+
+**소리 나는 작품을 만들어도 됩니다.** iframe에 `allow="autoplay"`가 주어져 있습니다.
+
+다만 **브라우저는 사람이 페이지를 한 번 건드리기 전에는 소리를 거부합니다. 스크롤은 「건드린 것」으로 치지 않습니다.** 그래서 소리를 쓴다면 둘 중 하나로 만드세요.
+
+- 첫 화면에서 한 번 누르고 들어가게 하거나,
+- 첫 클릭·키 입력·터치가 들어온 순간 소리를 다시 청하거나.
+
+거부는 조용합니다. `play()`가 돌려주는 약속을 받아 처리하고, 소리 없이도 작품이 성립하게 만드세요.
+
+### 화면과 조작
+
+- **스크롤해도 되고, 한 화면에 고정해도 됩니다.** 둘 다 실린 전례가 있습니다. 스크롤한다면 `scroll-snap`은 `proximity`를 쓰세요. `mandatory`는 화면보다 긴 구간에서 읽는 사람을 앞 구간으로 되돌려 버립니다.
+- 최소 `375 × 667` 모바일과 데스크톱에서 확인하세요.
+- 무엇을 해야 하는지 화면에서 알 수 있게 만드세요.
+- 포인터뿐 아니라 가능하면 키보드와 터치도 받아 주세요.
+
+### 위에 얹히는 막대
+
+작품 위 상단에 **높이 약 74px의 내비게이션**이 떠 있습니다(이전 / 로고 / 다음). 작품에서 따로 만들지 마세요. 그 자리에 꼭 읽혀야 할 것을 두지 마세요.
+
+작품이 원하면 **이 막대를 내려 달라고 부탁할 수 있습니다.** 부모에게 메시지를 보내면 됩니다.
+
+```js
+// 내려 달라고
+window.parent.postMessage({ from: 'vibe-fold:chapter', chrome: 'dim' }, '*');
+// 다시 올려 달라고
+window.parent.postMessage({ from: 'vibe-fold:chapter', chrome: 'show' }, '*');
 ```
 
-Folders listed here must exist. Folders that are not listed are ignored (useful for drafts). Reorder by moving lines.
+내려간 막대는 독자가 화면 위쪽으로 마우스를 가져가면 다시 나타납니다. 이 메시지를 보내지 않으면 막대는 계속 떠 있습니다. 부모에 **말을 거는 것**은 되지만 부모를 **읽는 것**은 여전히 막혀 있습니다.
 
-URL shape (generated automatically):
+## 6. 올리기 전에 확인
 
-`/vol/{volumeNumber}-{volumeSlug}/ch/{order}-{slug}`
-
-## Hard rules
-
-1. **Local assets only** — images, fonts, scripts, and data must live in your chapter folder. No CDN, no remote fonts, no `fetch` to the internet.
-2. **Ship built output** — PR the finished `index.html` + assets. CI does not build chapter toolchains for you.
-3. **Sandbox** — chapters run in `<iframe sandbox="allow-scripts">` (no `allow-same-origin`). That means:
-   - `localStorage` / cookies are unavailable
-   - you cannot access the parent page
-   - keep state in memory
-4. **Do not edit the shell header** — prev / logo / next is owned by the site. Your page should assume a small top overlay.
-5. **Volumes are editor-owned** — do not add `volume.yaml`, change the `chapters:` list, or create new volumes unless you are coordinating with an editor. Editors start a volume with `cp -R content/_templates content/vol-02-my-volume`.
-
-## Local preview
+Node.js 22.12 이상에서 잠금 파일대로 설치하고 전체 빌드를 확인합니다.
 
 ```bash
-npm install
-npm run dev
+npm ci
+npm run build
+npm run dev     # 또는 npx astro dev
 ```
 
-- Example volume: `/vol/0-sokdam`
-- Volume page: `/vol/1-seolhwa` (published volumes only)
-- Your chapter: `/vol/1-seolhwa/ch/{order}-{slug}`
-- Raw iframe document: `/chapters/1-seolhwa/{order}-{slug}/index.html`
+빌드가 통과했다고 작품이 제대로 도는 것은 아닙니다. 아래 주소를 직접 열어 보세요.
 
-Chapter files under `content/` are synced into `public/chapters` when Astro starts or builds.
+- 작품 페이지 `/vol/1-seolhwa/ch/3-my-piece`
+- 작품만 따로 `/chapters/1-seolhwa/3-my-piece/index.html`
 
-## Review checklist
+확인할 것:
 
-- [ ] `meta.yaml` + `index.html` + thumb present
-- [ ] Relative asset paths only
-- [ ] Works with keyboard / pointer where interaction matters
-- [ ] No reliance on `localStorage`
-- [ ] PR scope limited to your chapter folder
+- 첫 화면이 오류 없이 뜨는지
+- 이미지·폰트·사운드·스크립트가 다 불러와지는지
+- 모바일과 데스크톱에서 잘리지 않는지
+- 반복 조작, 빠른 연타, 창 크기 변경에 깨지지 않는지
+- **개발자 도구 Console에 오류가 없고 Network에 외부 요청이 없는지**
+
+편집부가 `volume.yaml`에 등록하기 전에는 볼륨 페이지 목록에 안 보일 수 있습니다. 그건 오류가 아닙니다.
+
+## 7. PR 올리기
+
+base는 **`main`** 입니다.
+
+PR에는 **자기 작품 폴더 하나만** 담으세요.
+
+```text
+content/<기존-볼륨>/ch-<slug>/
+```
+
+편집부와 따로 이야기하지 않았다면 다음은 건드리지 마세요.
+
+- `volume.yaml`, 다른 작품 폴더
+- `src/`, `public/`, Astro 설정
+- 공용 스타일, 헤더, 내비게이션
+- `ARTWORK.md`, `CONTRIBUTING.md`, 템플릿
+
+```bash
+git status --short
+git add content/vol-01-seolhwa/ch-my-piece
+git diff --cached --name-only    # 내 폴더만 나오는지 확인
+git commit -m "셀레네 밤의 여신을 설화에 올리다"
+git push -u origin artwork/my-piece
+```
+
+리뷰 반영은 브랜치에 커밋을 더하면 됩니다. force push로 다시 쓸 필요 없습니다. 승인된 PR은 편집부가 정리해서 머지합니다.
+
+## 8. PR 본문
+
+```markdown
+## 작품 정보
+
+- slug:
+- 제목:
+- 제작자:
+- 작품 폴더:
+
+### 설명
+
+`description`과 같거나 더 자세하게.
+
+### 조작 방법
+
+독자가 무엇을 하면 무엇이 일어나는지.
+
+### 대표 순간
+
+홍보 영상으로 찍을 장면. 무엇을 조작하면 몇 초쯤 뒤에 무엇이 나타나는지.
+
+## 외부 링크
+
+- GitHub:
+- Website:
+- Instagram:
+
+## 에셋 출처
+
+| 에셋 | 출처 | 라이선스 |
+| --- | --- | --- |
+| | | |
+
+- AI 생성 에셋: 없음 / 있음 —
+
+## 제출 검사
+
+- [ ] `meta.yaml`과 `index.html`이 폴더 루트에 있음
+- [ ] `slug` → `id` → 폴더명이 `my-piece` → `ch-my-piece`로 일치
+- [ ] 폴더명에 순번을 붙이지 않음
+- [ ] 썸네일이 **가로**이고 152px 폭에서도 읽힘
+- [ ] 모든 에셋이 작품 폴더 안에 있고 상대경로임
+- [ ] 외부 네트워크 요청이 없음
+- [ ] sandbox가 막는 기능에 의존하지 않음
+- [ ] 소리를 쓴다면 거부되어도 작품이 성립함
+- [ ] `375 × 667`과 데스크톱에서 확인함
+- [ ] `node_modules`와 빌드 찌꺼기를 넣지 않음
+- [ ] 에셋의 웹 공개 재배포 권리를 확인함
+- [ ] 변경 범위가 자기 작품 폴더 하나뿐임
+- [ ] `npm run build` 통과
+```
+
+## 9. 검토와 발행
+
+편집부가 보는 것:
+
+1. 제출 형식과 실행 규칙을 지켰는지
+2. 습작이나 데모가 아니라 완성된 작품인지
+3. 그 호수의 주제와 이어지는지
+4. 조작과 반응이 독자에게 분명한지
+5. 화면 크기 변경과 반복 조작에도 버티는지
+
+수정이 필요하면 PR 리뷰로 요청합니다. 승인되면 편집부가 머지하고 순서를 정해 `volume.yaml`에 등록합니다.
+
+## 10. 권리와 출처
+
+- 쓴 이미지·사운드·폰트·코드의 **웹 공개 재배포 권리**를 확인하고 PR 본문에 출처와 라이선스를 적으세요.
+- 생성형 AI로 만든 에셋은 사용 사실을 적으세요. 기록용이며 그 자체가 반려 사유는 아닙니다.
+- **작품의 저작권은 제작자에게 있습니다.**
+- 제출은 VIBE FOLD가 작품을 게재·전시하고, 홍보를 위해 작품 화면을 촬영·편집·배포하며 `creator`와 `links`를 표기하는 데 동의함을 뜻합니다.
+- 원하지 않는 홍보 방식이 있으면 PR 본문에 적으세요.
