@@ -103,6 +103,12 @@ const files = Array.from({ length: Math.min(count, 3) }, (_, index) => `Ch.${ind
 	   quicker than the movement so the thing is solid before it settles. */
 	.sticker {
 		position: absolute;
+		/* Several of these are drawn at a fixed width — a notification banner and
+		   a calendar chip are the sizes they are. On a phone those are wider than
+		   the screen, and one of them hanging off the right edge gives the whole
+		   page a sideways scroll. */
+		max-width: calc(100vw - 2rem);
+		box-sizing: border-box;
 		display: flex;
 		user-select: none;
 		cursor: grab;
@@ -538,7 +544,11 @@ const files = Array.from({ length: Math.min(count, 3) }, (_, index) => `Ch.${ind
 				header +
 				MARGIN +
 				Math.random() * Math.max(0, window.innerHeight - header - height - MARGIN * 2);
-			const left = MARGIN + Math.random() * Math.max(0, window.innerWidth - width - MARGIN * 2);
+			// The page's own width, not the window's: `innerWidth` counts the
+			// scrollbar, and a sticker placed against that lands past the right
+			// edge and gives the page a sideways scroll of its own.
+			const page = document.documentElement.clientWidth;
+			const left = MARGIN + Math.random() * Math.max(0, page - width - MARGIN * 2);
 
 			sticker.style.top = `${Math.round(top)}px`;
 			sticker.style.left = `${Math.round(left)}px`;

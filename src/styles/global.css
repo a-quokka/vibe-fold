@@ -236,8 +236,13 @@
 	 * of the folder at every size, and the sheet inside takes what is left after
 	 * the folder's own 3.5rem of stock on either hand. What the opened cover
 	 * throws past the edge of the screen is allowed past the edge of the screen;
-	 * this is about the folder, not about the spread. */
-	--stage-paper-w: min(47.5rem, calc(100vw - 9rem));
+	 * this is about the folder, not about the spread.
+	 *
+	 * The tab counts. It stands on the folder's trailing edge and its own height
+	 * is the width it takes there, so the folder has to give that back or the
+	 * two together run past the margin and the page scrolls sideways.
+	 */
+	--stage-paper-w: min(47.5rem, calc(100vw - 9rem - var(--tab-height)));
 	--stage-open-w: calc(var(--stage-paper-w) + 7rem);
 }
 

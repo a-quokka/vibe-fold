@@ -103,7 +103,10 @@ export function scatter(elements: HTMLElement[], options: { spread?: number } = 
 
 		const band = (window.innerHeight - header - margin * 2 - height) / elements.length;
 		const top = header + margin + band * index + Math.random() * Math.max(0, band);
-		const left = margin + Math.random() * Math.max(0, window.innerWidth - width - margin * 2);
+		// The page's own width, not the window's — see Stickers: `innerWidth`
+		// counts the scrollbar and pushes the last of these off the right edge.
+		const page = document.documentElement.clientWidth;
+		const left = margin + Math.random() * Math.max(0, page - width - margin * 2);
 
 		element.style.left = `${Math.round(left)}px`;
 		element.style.top = `${Math.round(window.scrollY + top)}px`;
