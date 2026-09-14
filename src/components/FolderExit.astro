@@ -159,13 +159,17 @@
 				{ opacity: 0, duration: 0.28, ease: 'power2.out' },
 				'<',
 			)
-			// 2. The folder comes to the middle of the screen and waits there for
-			//    the page to change under it.
+			// 2. The folder comes to the middle of the screen and turns a quarter
+			//    to the right as it goes — the tab leaves the top edge and finishes
+			//    on the trailing one, which is the way a folder is held to be read
+			//    rather than to be filed. The page changes with it already turned:
+			//    the turn belongs to the picking up, not to the arriving.
 			.to(
 				proxy,
 				{
 					left: to.left,
 					top: to.top,
+					rotation: 90,
 					duration: 0.72,
 					ease: 'power3.inOut',
 				},

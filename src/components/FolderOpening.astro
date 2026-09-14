@@ -167,15 +167,12 @@ const { color, ink, label, title, summary, works } = Astro.props;
 		width: var(--stage-w);
 		height: var(--stage-h);
 		transform-style: preserve-3d;
-		/* Lying on its side, as it arrived. Written as a transform rather than as
-		   `rotate`, because the timeline animates this element's transform: the
-		   individual property would compose with it instead of being replaced,
-		   and the folder would turn a quarter of the way and stay there. */
-		transform: rotate(-90deg);
-		/* Lying down, the light has to come from what is the folder's own leading
-		   edge for it to fall from the top of the screen. The turn sweeps this
-		   back to 180deg, so the lit edge stays up there throughout. */
-		--sheen-angle: 270deg;
+		/* Upright, tab on the trailing edge. The quarter turn belongs to the page
+		   before this one — the folder is picked up and turned there, and the
+		   screen changes with it already held the way it is read. What arrives
+		   here has only to be opened. */
+		transform: none;
+		--sheen-angle: 180deg;
 	}
 
 	.opening__inner {
@@ -467,7 +464,8 @@ const { color, ink, label, title, summary, works } = Astro.props;
 			 *  off the bottom, where the page scrolls. */
 			const headerHeight = cssLength('--stage-clear');
 
-			const centreNow = folder.getBoundingClientRect().top + folder.offsetWidth / 2;
+			const box = folder.getBoundingClientRect();
+			const centreNow = box.top + box.height / 2;
 			const openY = headerHeight + openHeight / 2 - centreNow;
 
 			const direct = scene.dataset.direct === 'true';
@@ -477,44 +475,26 @@ const { color, ink, label, title, summary, works } = Astro.props;
 				// Nothing was clicked to get here, so there is no turn to play. The
 				// folder is put straight into the state the turn would have left it
 				// in, and the page arrives instead.
-				gsap.set(folder, {
-					rotation: 0,
-					'--sheen-angle': '180deg',
-					y: openY,
-					width: openWidth,
-				});
+				gsap.set(folder, { y: openY, width: openWidth });
 				gsap.set(cover, { rotateY: -180 });
 			}
 
 			timeline
-				// 3. Held for a beat in the state the home page handed over, so the
-				//    change of page is not the same instant as the change of shape.
-				.to({}, { duration: 0.24 })
-				// 4. A quarter turn to the right: the folder stands up and the tab
-				//    finishes on its trailing edge. Nothing about its size changes
-				//    on the way round — a folder this wide stands taller than the
-				//    screen, and it is allowed to run off the top and the bottom.
-				.to(folder, {
-					rotation: 0,
-					'--sheen-angle': '180deg',
-					// It lies out to its reading width on the way round, not after.
-					// Growing while the cover swings put a second change of shape
-					// on top of the one the eye is already following, and the folder
-					// read as being stretched after it had finished opening.
-					width: openWidth,
-					duration: 0.78,
-					ease: 'power3.inOut',
-				})
-				// 5. The cover opens to the left about its spine, a full half turn,
-				//    and comes to rest face down beside the folder. The folder
-				//    moves with it: a spread twice the width of a closed folder
-				//    cannot stay where the closed one stood, and it grows into
-				//    the room the turn gives it so the paper reads at its own
-				//    size rather than as a column on a coloured field.
-				.to(cover, { rotateY: -180, duration: 0.94, ease: 'power3.inOut' }, '>0.08')
-				// It only moves now: down to where its top clears the navigation's
-				// band. It is already the width it opens at.
-				.to(folder, { y: openY, duration: 0.94, ease: 'power3.inOut' }, '<');
+				// 3. Held for a beat in the state the home page handed over — turned
+				//    and shut — so the change of page is not the same instant as the
+				//    change of shape.
+				.to({}, { duration: 0.32 })
+				// 4. The cover opens to the left about its spine, a full half turn,
+				//    and comes to rest face down beside the folder.
+				.to(cover, { rotateY: -180, duration: 0.94, ease: 'power3.inOut' })
+				// The folder lies out as it opens: down to where its top clears the
+				// navigation's band, and out to the width the sheet is read at. A
+				// spread cannot stand where the shut folder stood.
+				.to(
+					folder,
+					{ y: openY, width: openWidth, duration: 0.94, ease: 'power3.inOut' },
+					'<',
+				);
 
 			/** The transition ends and the page begins — in the same place, at the
 			 *  same size, so there is nothing to see in the change.
@@ -539,9 +519,6 @@ const { color, ink, label, title, summary, works } = Astro.props;
 					right: folderBox.right - paperBox.right,
 				};
 
-				// Not `clearProps` alone: the folder's resting transform in CSS is the
-				// quarter turn it starts the scene at, and clearing the inline one
-				// would lay it back down.
 				gsap.set(folder, { clearProps: 'transform' });
 				Object.assign(folder.style, {
 					transform: 'none',
