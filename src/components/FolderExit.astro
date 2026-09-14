@@ -66,9 +66,16 @@
 		 *  across a screen a third as wide. So it gives back only what it has to,
 		 *  and keeps the page's 16px on either hand. */
 		const page = document.documentElement.clientWidth;
-		const room = page - MARGIN * 2;
+		/** The tab belongs to the folder's width, not to its own. Turned, it
+		 *  stands off the trailing edge and its height is the room it takes
+		 *  there, so it comes out of the space the folder has to fit into and
+		 *  the pair is centred together — centred on the folder alone, the tab
+		 *  hangs over the margin on the right. */
+		const tab = cssLength('--tab-height');
+		const room = page - MARGIN * 2 - tab;
 		const shrink = Math.min(1, room / from.height);
 		const size = { width: from.width * shrink, height: from.height * shrink };
+		const centreX = page / 2 - tab / 2;
 
 		/** Centred, but never into the navigation's band. Wherever it stops is
 		 *  where the next page has to start, and the quarter turn happens on that
@@ -82,7 +89,7 @@
 		const to = {
 			width: size.width,
 			height: size.height,
-			left: (page - size.width) / 2,
+			left: centreX - size.width / 2,
 			top: centreY - size.height / 2,
 		};
 

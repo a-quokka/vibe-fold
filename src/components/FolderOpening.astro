@@ -207,6 +207,15 @@ const { color, ink, label, title, summary, works } = Astro.props;
 		   off the cover is projected a fraction smaller and steps away from it
 		   at the edges. */
 		inset: 0 0 0 -2px;
+		/* The inside of a folder cannot show past the folder. The sheet is laid
+		   out at the height its own words need — that measurement is what the
+		   folder then grows to — and until the folder has grown, the part of the
+		   sheet it cannot yet hold hangs out of the bottom. Held in here, the
+		   sheet is uncovered by the folder reaching its size rather than
+		   appearing beneath it.
+
+		   The cover is a sibling, not a child, so it still swings clear. */
+		overflow: hidden;
 		display: flex;
 		align-items: flex-end;
 		padding: var(--folder-inset);

@@ -82,7 +82,8 @@ const volumes = getAllVolumes().filter((volume) => volume.status === 'published'
 	.home__foot {
 		display: flex;
 		justify-content: center;
-		padding: var(--space-hero-gap) var(--page-pad);
+		/* 40px off the foot of the page, centred across its whole measure. */
+		padding: var(--space-hero-gap) var(--page-pad) 2.5rem;
 		/* It signs the page; it does not announce it. */
 		color: var(--color-text);
 		opacity: 0.45;
