@@ -119,11 +119,16 @@ const { color, ink, label, title, summary, works } = Astro.props;
 		// so the two measurements swap.
 		folder.style.width = `${record.height}px`;
 		folder.style.height = `${record.width}px`;
-		// On the spot the last page left it on. The element is centred on its own
-		// `left`/`top` by a translate of half itself, so the two numbers are the
-		// centre of the rect the folder was holding when the screen changed.
-		if (typeof record.centreX === 'number') folder.style.left = `${record.centreX}px`;
-		if (typeof record.centreY === 'number') folder.style.top = `${record.centreY}px`;
+		// On the spot the last page left it on. The record carries the centre of
+		// the rect the folder was holding when the screen changed; the element is
+		// placed by its top-left corner, and its own box is that rect turned —
+		// the width it gets is the record's height and the other way about.
+		if (typeof record.centreX === 'number') {
+			folder.style.left = `${record.centreX - record.height / 2}px`;
+		}
+		if (typeof record.centreY === 'number') {
+			folder.style.top = `${record.centreY - record.width / 2}px`;
+		}
 	})();
 </script>
 
@@ -161,12 +166,20 @@ const { color, ink, label, title, summary, works } = Astro.props;
 		   it 195px below where the home page let go of it. `translate` is its own
 		   property, so the timeline can own `transform` without disturbing it. */
 		position: absolute;
-		left: 50%;
+		/* Placed by its own edges, not by a `translate` of half itself.
+		 *
+		 * GSAP takes this element's transform over, and on the way it folds the
+		 * CSS `translate` into its own matrix and clears the property. That only
+		 * works if the value is there to be read. The dev server has its styles
+		 * in the document and it always is; production fetches a stylesheet, and
+		 * when GSAP got there first it folded in nothing and cleared a centring
+		 * that had never applied — the folder landed half of itself down and to
+		 * the right. Nothing here depends on that property any more. */
+		left: calc(50% - var(--stage-w) / 2);
 		/* Hung from the top rather than centred, matching where the home page
 		   leaves it. The offset is the folder's own centre line: the script puts
 		   the real number here once it knows what size it is holding. */
-		top: calc(var(--stage-top) + var(--stage-w) / 2);
-		translate: -50% -50%;
+		top: calc(var(--stage-top) + var(--stage-w) / 2 - var(--stage-h) / 2);
 		width: var(--stage-w);
 		height: var(--stage-h);
 		transform-style: preserve-3d;
