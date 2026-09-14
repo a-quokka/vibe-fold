@@ -1,6 +1,7 @@
 ---
 import FolderExit from '../components/FolderExit.astro';
 import Guestbook from '../components/Guestbook.astro';
+import Sparkles from '../components/Sparkles.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -76,5 +77,6 @@ const shareImage = new URL(image, Astro.site);
 		<slot />
 		<FolderExit />
 		<Guestbook />
+		<Sparkles />
 	</body>
 </html>

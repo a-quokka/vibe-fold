@@ -52,6 +52,11 @@ const pageTitle = `${formatChapterLabel(current.order, current.title)} · ${form
 			src={current.iframeSrc}
 			title={formatChapterLabel(current.order, current.title)}
 			sandbox="allow-scripts"
+			{/* The chapter is cross-origin to this page — it is sandboxed, so its
+			    origin is opaque — and `autoplay` defaults to `self`. Without this
+			    it may not sound at all: muted film plays, a voice never does, and
+			    the refusal is silent. Delegated rather than assumed. */}
+			allow="autoplay"
 			loading="eager"
 		></iframe>
 	</main>

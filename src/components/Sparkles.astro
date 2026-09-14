@@ -1,0 +1,202 @@
+---
+/** The cursor leaves a trail.
+ *
+ *  Sparks drop where the pointer has been and go out on their own. It is the
+ *  one thing on this site that answers a movement nobody made on purpose, so it
+ *  is kept cheap and quiet: a few specks, gone inside a second.
+ *
+ *  One canvas rather than a node per spark. A pointer moving across the screen
+ *  fires dozens of events a second, and a DOM element built and thrown away for
+ *  each one puts the layout engine to work every frame. Here nothing is laid
+ *  out at all — the whole trail is one element that never changes size.
+ */
+---
+
+<canvas class="sparkles" data-sparkles aria-hidden="true"></canvas>
+
+<style>
+	.sparkles {
+		position: fixed;
+		inset: 0;
+		/* Over everything, in the way of nothing. The cursor is above the page,
+		   so what follows it is too — and it cannot take a click, a drag or a
+		   text selection away from what is underneath. */
+		z-index: 300;
+		pointer-events: none;
+		width: 100%;
+		height: 100%;
+	}
+
+	/* No pointer to trail, or a visitor who asked for less: no canvas either. */
+	@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+		.sparkles {
+			display: none;
+		}
+	}
+</style>
+
+<script>
+	const canvas = document.querySelector<HTMLCanvasElement>('[data-sparkles]');
+	const fine = window.matchMedia('(hover: hover) and (pointer: fine)');
+	const still = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+	if (canvas && fine.matches && !still.matches) {
+		const context = canvas.getContext('2d');
+
+		if (context) {
+			type Spark = {
+				x: number;
+				y: number;
+				vx: number;
+				vy: number;
+				size: number;
+				turn: number;
+				spin: number;
+				life: number;
+				span: number;
+				hue: 'accent' | 'white';
+			};
+
+			/** The site's own pink, and a warm white. Two colours rather than one
+			 *  because the page is dark and the paper inside the folder is not:
+			 *  white alone would vanish on the sheet, pink alone on the cover it
+			 *  is printed on. */
+			const ACCENT = '255, 46, 136';
+			const WHITE = '255, 246, 240';
+
+			/** Enough to read as a trail, few enough that a fast hand across a
+			 *  wide screen never has the renderer drawing a crowd. */
+			const CEILING = 48;
+			const sparks: Spark[] = [];
+
+			let ratio = 1;
+
+			const fit = () => {
+				ratio = Math.min(window.devicePixelRatio || 1, 2);
+				canvas.width = Math.round(window.innerWidth * ratio);
+				canvas.height = Math.round(window.innerHeight * ratio);
+				context.setTransform(ratio, 0, 0, ratio, 0, 0);
+			};
+
+			fit();
+			window.addEventListener('resize', fit);
+
+			/** A four-pointed spark: two spikes crossing, waisted at the middle so
+			 *  the arms taper rather than meeting as a square. */
+			const star = (size: number) => {
+				const waist = size * 0.26;
+				context.beginPath();
+				context.moveTo(0, -size);
+				context.quadraticCurveTo(waist, -waist, size, 0);
+				context.quadraticCurveTo(waist, waist, 0, size);
+				context.quadraticCurveTo(-waist, waist, -size, 0);
+				context.quadraticCurveTo(-waist, -waist, 0, -size);
+				context.closePath();
+			};
+
+			let running = false;
+			let last = 0;
+
+			const frame = (now: number) => {
+				const step = last ? Math.min((now - last) / 1000, 0.05) : 0.016;
+				last = now;
+
+				context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+				for (let i = sparks.length - 1; i >= 0; i -= 1) {
+					const spark = sparks[i];
+					spark.life += step;
+
+					if (spark.life >= spark.span) {
+						sparks.splice(i, 1);
+						continue;
+					}
+
+					// Carried by what is left of its own push, and falling a little.
+					spark.x += spark.vx * step;
+					spark.y += spark.vy * step;
+					spark.vx *= 0.94;
+					spark.vy = spark.vy * 0.94 + 26 * step;
+					spark.turn += spark.spin * step;
+
+					// Bright for the first breath, then out. Squared so the tail of
+					// the fade is long and the head of it is not.
+					const left = 1 - spark.life / spark.span;
+					const fade = left * left;
+
+					context.save();
+					context.translate(spark.x, spark.y);
+					context.rotate(spark.turn);
+					context.fillStyle = `rgba(${spark.hue === 'accent' ? ACCENT : WHITE}, ${fade})`;
+					star(spark.size * (0.35 + fade * 0.65));
+					context.fill();
+					context.restore();
+				}
+
+				if (sparks.length > 0) {
+					window.requestAnimationFrame(frame);
+				} else {
+					// Nothing left to draw. The loop stops rather than spinning on an
+					// empty screen for as long as the page is open.
+					running = false;
+					last = 0;
+				}
+			};
+
+			const wake = () => {
+				if (running) return;
+				running = true;
+				window.requestAnimationFrame(frame);
+			};
+
+			/** Where the pointer was when the last spark was dropped, so a spark is
+			 *  spent on distance travelled rather than on every event the browser
+			 *  happens to send. */
+			let fromX = 0;
+			let fromY = 0;
+			let seeded = false;
+
+			window.addEventListener(
+				'pointermove',
+				(event) => {
+					if (event.pointerType !== 'mouse') return;
+
+					if (!seeded) {
+						fromX = event.clientX;
+						fromY = event.clientY;
+						seeded = true;
+						return;
+					}
+
+					const dx = event.clientX - fromX;
+					const dy = event.clientY - fromY;
+					if (dx * dx + dy * dy < 144) return;
+
+					fromX = event.clientX;
+					fromY = event.clientY;
+
+					if (sparks.length >= CEILING) return;
+
+					const spread = () => (Math.random() - 0.5) * 46;
+					sparks.push({
+						x: event.clientX + (Math.random() - 0.5) * 10,
+						y: event.clientY + (Math.random() - 0.5) * 10,
+						vx: spread(),
+						vy: spread() - 14,
+						size: 3 + Math.random() * 4,
+						turn: Math.random() * Math.PI,
+						spin: (Math.random() - 0.5) * 3.2,
+						life: 0,
+						span: 0.5 + Math.random() * 0.35,
+						// Mostly the accent: it is the one that reads on the dark page
+						// and on the sheet alike.
+						hue: Math.random() < 0.72 ? 'accent' : 'white',
+					});
+
+					wake();
+				},
+				{ passive: true },
+			);
+		}
+	}
+</script>

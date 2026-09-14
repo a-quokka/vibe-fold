@@ -17,7 +17,12 @@ function metaLine(chapter: Chapter): string {
 }
 ---
 
-<header class="chapter-chrome">
+<header class="chapter-chrome" data-chapter-chrome>
+	{/* The band the pointer has to reach to call the bar back. It is the only
+	    part of the chrome that takes the pointer while the bar is down, and it
+	    is no taller than the bar itself. */}
+	<div class="chapter-chrome__edge" aria-hidden="true"></div>
+
 	<div class="chapter-chrome__side chapter-chrome__side--prev">
 		{
 			prev ? (
@@ -61,6 +66,54 @@ function metaLine(chapter: Chapter): string {
 </header>
 
 <style>
+	/* A work can ask for the bar to stand down — see the script. It goes up out
+	   of the way and comes back when the pointer reaches the top of the screen,
+	   so the way out is always one movement away without being in the way of
+	   what is being read. */
+	.chapter-chrome__edge {
+		position: absolute;
+		inset: 0 0 auto;
+		height: 100%;
+		min-height: 4.5rem;
+		pointer-events: none;
+	}
+
+	.chapter-chrome[data-dim='true'] .chapter-chrome__edge {
+		pointer-events: auto;
+	}
+
+	.chapter-chrome__side,
+	.chapter-chrome__brand {
+		transition:
+			opacity 420ms var(--ease-out),
+			translate 420ms var(--ease-out);
+	}
+
+	.chapter-chrome[data-dim='true'] .chapter-chrome__side,
+	.chapter-chrome[data-dim='true'] .chapter-chrome__brand {
+		opacity: 0;
+		translate: 0 -0.75rem;
+		pointer-events: none;
+	}
+
+	/* Reached for, and back. Focus counts as reaching for it: the way out has to
+	   be there for a keyboard as well as a hand. */
+	.chapter-chrome[data-dim='true']:hover .chapter-chrome__side,
+	.chapter-chrome[data-dim='true']:hover .chapter-chrome__brand,
+	.chapter-chrome[data-dim='true']:focus-within .chapter-chrome__side,
+	.chapter-chrome[data-dim='true']:focus-within .chapter-chrome__brand {
+		opacity: 1;
+		translate: 0 0;
+		pointer-events: auto;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.chapter-chrome__side,
+		.chapter-chrome__brand {
+			transition-duration: 150ms;
+		}
+	}
+
 	.chapter-chrome {
 		position: fixed;
 		inset: 0 0 auto;
@@ -161,3 +214,49 @@ function metaLine(chapter: Chapter): string {
 		}
 	}
 </style>
+
+<script>
+	/** A work can ask for the bar to stand down.
+	 *
+	 *  The chapter runs in a sandbox with no same-origin rights, so it cannot
+	 *  reach in here — but it can post a message out, and that is the whole of
+	 *  the contract: a work that wants the screen to itself says so, and says so
+	 *  again when it wants the bar back. Works that say nothing keep it.
+	 *
+	 *  The message is trusted only when it comes from the frame this page put
+	 *  there. A sandboxed frame has an opaque origin, so the sender is checked
+	 *  against the window itself rather than against a name it could claim.
+	 */
+	const chrome = document.querySelector<HTMLElement>('[data-chapter-chrome]');
+	const frame = document.querySelector<HTMLIFrameElement>('.chapter-stage__frame');
+
+	if (chrome && frame) {
+		/** Only a frame this page put on it may speak. A sandboxed frame has an
+		 *  opaque origin, so there is no name to check — what is checked is that
+		 *  the sender is one of this window's own frames. Comparing window
+		 *  proxies across that boundary is allowed but not always equal, so the
+		 *  frame is tried first and the page's frame list second. */
+		const ours = (source: MessageEventSource | null) => {
+			if (!source) return false;
+			try {
+				if (source === frame.contentWindow) return true;
+			} catch {
+				// Reaching for it is enough to be told no. Fall through.
+			}
+			for (let i = 0; i < window.frames.length; i += 1) {
+				if (source === window.frames[i]) return true;
+			}
+			return false;
+		};
+
+		window.addEventListener('message', (event) => {
+			if (!ours(event.source)) return;
+
+			const note = event.data;
+			if (!note || note.from !== 'vibe-fold:chapter') return;
+
+			if (note.chrome === 'dim') chrome.dataset.dim = 'true';
+			if (note.chrome === 'show') delete chrome.dataset.dim;
+		});
+	}
+</script>
