@@ -36,6 +36,7 @@
 
 		<textarea
 			class="composer__field"
+			maxlength="200"
 			data-guestbook-field
 			rows="2"
 			placeholder="남기고 싶은 말을 적어 주세요"
@@ -44,7 +45,7 @@
 
 		<button class="composer__submit pressable" type="submit" data-guestbook-done>완료</button>
 
-		<p class="composer__toast glass" data-guestbook-toast hidden>입력된 내용이 없어요</p>
+		<p class="composer__toast glass" data-guestbook-toast hidden aria-live="polite"></p>
 	</form>
 </div>
 
@@ -308,8 +309,17 @@
 
 <script>
 	import { makeDraggable } from '../lib/draggable';
+	import { fetchNotes, postNote, LIMIT, type Note } from '../lib/guestbook-store';
 
-	type Note = { id: string; text: string; x: number; y: number; at: number };
+	/** A note on screen: what was written, and where this reader's page happens
+	 *  to have put it. The spot is not stored anywhere — see the store. */
+	type Placed = Note & { x: number; y: number };
+
+	/** How many of the page's notes are shown at once, and how long a writer
+	 *  waits between notes. The cap is so a well-signed volume stays a page and
+	 *  not a wall; the pause is so a slip of the finger does not post twice. */
+	const SHOWN = 14;
+	const PAUSE = 20_000;
 
 	const layer = document.querySelector<HTMLElement>('[data-guestbook-notes]');
 	const opener = document.querySelector<HTMLButtonElement>('[data-guestbook-open]');
@@ -323,11 +333,11 @@
 		 *  the chapters are somebody else's work inside their own frame. */
 		const PAGE = location.pathname.replace(/\/+$/, '') || '/';
 		const onVolume = /^\/vol\/[^/]+$/.test(PAGE);
-		const KEY = `vibe-fold:guestbook:v4:${PAGE}`;
-
-		// Earlier rounds are retired with their keys: those notes were pinned to
-		// a selection, and there are no pins any more.
-		['', 'v2:', 'v3:'].forEach((v) => {
+		// Every earlier round is retired with its key. Those notes were kept in
+		// this browser and were never anybody else's to read; there is no way to
+		// send them on, and leaving them would show one reader a page nobody
+		// else can see.
+		['', 'v2:', 'v3:', 'v4:'].forEach((v) => {
 			try {
 				localStorage.removeItem(`vibe-fold:guestbook:${v}${PAGE}`);
 			} catch {
@@ -335,24 +345,27 @@
 			}
 		});
 
-		const read = (): Note[] => {
+		/** The last time this browser left a note. The only thing still kept
+		 *  here — it is about the hand holding the pen, not about the book. */
+		const PACE = 'vibe-fold:guestbook:last';
+
+		const tooSoon = () => {
 			try {
-				const raw = localStorage.getItem(KEY);
-				return raw ? (JSON.parse(raw) as Note[]) : [];
+				const last = Number(localStorage.getItem(PACE) || 0);
+				return Date.now() - last < PAUSE;
 			} catch {
-				return [];
+				return false;
 			}
 		};
 
-		const write = (notes: Note[]) => {
+		const markPace = () => {
 			try {
-				localStorage.setItem(KEY, JSON.stringify(notes));
+				localStorage.setItem(PACE, String(Date.now()));
 			} catch {
-				// Private browsing: the note lives as long as the page does.
+				// Nothing to remember it with. One note at a time is not worth
+				// refusing over.
 			}
 		};
-
-		let notes = read();
 
 		/** The band across the top belongs to the navigation, and a note dropped
 		 *  against `innerWidth` lands past the right edge — that measure counts
@@ -397,7 +410,8 @@
 
 		const nodes: HTMLElement[] = [];
 
-		const drop = (note: Note, settled: boolean) => {
+		const drop = (note: Note) => {
+			const placed = note as Placed;
 			const el = document.createElement('div');
 			el.className = 'gb-note';
 			el.innerHTML = '<p class="gb-note__bubble"></p><span class="gb-note__time"></span>';
@@ -407,17 +421,14 @@
 
 			// Measured after it is in the document: where it lands depends on how
 			// tall the sentence turned out.
-			if (!settled) {
-				const spot = place(el);
-				note.x = spot.left;
-				note.y = spot.top;
-			}
-			// A note written on a wide screen and read back on a narrow one would
-			// otherwise sit off the right edge and take the page's margin with it.
+			const spot = place(el);
+			placed.x = spot.left;
+			placed.y = spot.top;
+
 			const page = document.documentElement.clientWidth;
-			const x = Math.min(note.x, Math.max(MARGIN, page - el.offsetWidth - MARGIN));
+			const x = Math.min(placed.x, Math.max(MARGIN, page - el.offsetWidth - MARGIN));
 			el.style.left = `${Math.max(MARGIN, x)}px`;
-			el.style.top = `${note.y}px`;
+			el.style.top = `${placed.y}px`;
 
 			nodes.push(el);
 			makeDraggable([el]);
@@ -437,9 +448,10 @@
 		 *  The transition holds `data-opening` on the root for as long as it is
 		 *  running. Arriving without one — a refresh, a bookmark — there is no
 		 *  attribute and nothing to wait for. */
-		const lay = () => {
+		const lay = async () => {
 			opener.hidden = false;
-			notes.forEach((note) => drop(note, true));
+			const written = await fetchNotes(PAGE, SHOWN);
+			written.forEach(drop);
 		};
 
 		if (onVolume) {
@@ -468,9 +480,11 @@
 
 		let toastTimer = 0;
 
-		/** The one thing that can go wrong here: nothing was written. */
-		const complain = () => {
+		/** What went wrong, said in the composer itself rather than anywhere the
+		 *  writer has to go looking. */
+		const complain = (what: string) => {
 			if (!toast) return;
+			toast.textContent = what;
 			toast.hidden = false;
 			window.clearTimeout(toastTimer);
 			toastTimer = window.setTimeout(() => {
@@ -506,25 +520,27 @@
 		composer.addEventListener('submit', (event) => {
 			event.preventDefault();
 
-			const text = field.value.trim();
+			const text = field.value.trim().slice(0, LIMIT);
 			if (!text) {
-				complain();
+				complain('입력된 내용이 없어요');
 				field.focus();
 				return;
 			}
 
-			const note: Note = {
-				id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
-				text,
-				x: 0,
-				y: 0,
-				at: Date.now(),
-			};
+			if (tooSoon()) {
+				complain('조금 뒤에 한 번 더 남겨 주세요');
+				return;
+			}
 
-			drop(note, false);
-			notes = [...notes, note];
-			write(notes);
+			// Put on the page at once, and sent on its way. The writer should see
+			// their own note land whether or not the table is reachable — and if
+			// it was not, the note stays for as long as they are here, which is
+			// the honest version of what happened.
+			drop({ id: `local-${Date.now()}`, text, at: Date.now() });
+			markPace();
 			close();
+
+			postNote(PAGE, text);
 		});
 	}
 </script>
