@@ -59,3 +59,9 @@ Edit only the background of this exact sprite sheet. Remove the gray checkerboar
 `tracks.js`에 음높이·장단·반주·악구 데이터를 두고 Web Audio로 합성합니다. 유명곡의 선율, 음원 샘플, 외부 영상 플레이어는 포함하지 않습니다. 실제 국악기 녹음이 아닌 합성 타악·현악기풍 음색입니다.
 
 자동 연주 시계 방식은 Tone.js의 Transport 개념과 Web Audio 예약 방식을 검토하고 기존 합성음을 확장했습니다. 라이브러리 설치나 코드 복사는 하지 않았습니다. 참고: https://tonejs.github.io/ 및 https://github.com/tonejs/tone.js/wiki/Transport
+
+## 표지 썸네일
+
+2026-09-15, Codex 내장 image generation 도구로 새로 제작했습니다. 기존 썸네일을 화풍 참고로 사용하고, 한지·황토색 박·먹 번짐을 유지했습니다. 흥부의 박에서 흐르는 쌀·비단과 놀부의 박에서 나오는 먹빛 소동을 제비와 넝쿨로 연결한 세로 3:4 구도입니다. 그림 안에는 제목이나 UI를 넣지 않았습니다.
+
+생성 결과 ID: `exec-6184034b-6275-49b8-a839-64230021cf01`. 생성 PNG를 900×1200 WebP로 최적화하여 `thumbnail.webp`로 사용합니다. 원본은 Codex 생성 이미지 저장소에 보존하며 사이트는 외부 경로에 의존하지 않습니다.

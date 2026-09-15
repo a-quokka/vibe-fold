@@ -21,3 +21,6 @@ body[data-scene=free] #chapter{display:none}
 #song-list button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 #song-list button[aria-pressed=true] .track-action{color:#e7bd84}
 @media(max-width:650px){#song-library{top:11%;left:8%;width:84%;max-width:none}#song-library .eyebrow{font-size:9px;margin:0}#song-library h2{font-size:24px;margin:4px 0}.library-hint{font-size:10px;margin:0 0 8px}#song-list{gap:4px;grid-template-columns:1fr 1fr}#song-list button{min-height:45px;padding:8px;gap:4px;flex-wrap:wrap}.track-name{font-size:11px}.track-action{font-size:9px}}
+
+#intro h1{font-size:clamp(58px,6vw,100px)}
+@media(max-width:650px){#intro h1{font-size:44px}#intro h1 em{margin-left:.18em}#intro .seal{right:-44px}}
