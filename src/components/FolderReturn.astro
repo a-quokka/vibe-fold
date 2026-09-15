@@ -1,0 +1,231 @@
+---
+/** Volume → home, the second half of the way back.
+ *
+ *  The mirror of FolderExit. There the drawer emptied itself and the chosen
+ *  folder was carried off to the middle of the screen, turned on its side;
+ *  here that same folder is standing in the middle of the screen when the page
+ *  arrives, and it is turned upright and put back in the drawer before the
+ *  rest of the stack comes up behind it.
+ *
+ *  The order is the way out read backwards. Out: everything else leaves, then
+ *  the folder is carried away. Back: the folder is filed, then everything else
+ *  returns. What arrives is a copy on the body, for the same reason the one
+ *  that left was — the drawer sits under a `perspective`, and an element with
+ *  perspective is a containing block its fixed children cannot leave.
+ *
+ *  It goes on the page twice, because the two things it has to do belong at
+ *  two different moments and both of them are before the first paint:
+ *
+ *    claim  — at the top, ahead of the slogan and the drawer. Settles whether
+ *             the page is being come back to at all, and stands down whatever
+ *             would otherwise be shown.
+ *    carry  — straight after the drawer, the first instant the folder it has to
+ *             copy exists. The copy is put on the screen here, in a script the
+ *             parser waits for, so the folder is in the very first frame the
+ *             page paints. Left to the deferred script that runs the animation,
+ *             there is a gap of everything-loading between the page arriving
+ *             and the folder appearing in it — and across the change of page
+ *             the folder blinks out and back in.
+ *
+ *  Nobody coming to the home page any other way sees any of this: without a
+ *  record the page arrives the way it always has, by HomeIntro.
+ */
+interface Props {
+	phase: 'claim' | 'carry';
+}
+
+const { phase } = Astro.props;
+---
+
+{
+	phase === 'claim' && (
+		<script is:inline set:html={`(() => {
+	const KEY = 'vibe-fold:return';
+	let record = null;
+	try {
+		const raw = sessionStorage.getItem(KEY);
+		sessionStorage.removeItem(KEY);
+		if (raw) {
+			const parsed = JSON.parse(raw);
+			// Stale means somebody arrived some other way — a bookmark, the back
+			// button an hour later. The window the way out allows, to the second.
+			if (Date.now() - parsed.at < 30000) record = parsed;
+		}
+	} catch {
+		// Private browsing: the home page simply arrives.
+	}
+
+	if (!record) return;
+
+	window.__vibeFoldReturn = record;
+	// HomeIntro reads this and stands down: the page is not arriving, it is
+	// being come back to, and the two entrances cannot both have the drawer.
+	document.documentElement.dataset.returning = 'true';
+})();`} />
+	)
+}
+
+{
+	phase === 'carry' && (
+		<script is:inline set:html={`(() => {
+	const record = window.__vibeFoldReturn;
+	if (!record) return;
+
+	const root = document.documentElement;
+	const all = Array.from(document.querySelectorAll('.folder-stack .folder'));
+	// The slot it came out of. Failing that — the drawer rearranged since, or a
+	// record with no name — the folder is filed in the only slot there is.
+	// Standing here holding the record and doing nothing is the one outcome
+	// worth ruling out: the page would come up with no entrance at all, which
+	// reads as the whole way back having been ignored.
+	const folder =
+		all.find((one) => one.dataset.flipId === record.id) ||
+		(all.length === 1 ? all[0] : null);
+
+	if (!folder) {
+		delete root.dataset.returning;
+		return;
+	}
+
+	const proxy = folder.cloneNode(true);
+	// The states the drawer writes on a folder while it is being pointed at.
+	// The copy has to arrive without any of them.
+	['open', 'peek', 'shifted', 'peekShifted', 'revealed', 'pushed', 'front'].forEach(
+		(key) => delete proxy.dataset[key],
+	);
+	proxy.dataset.flightProxy = 'true';
+	proxy.style.cssText +=
+		'position:fixed;' +
+		'left:' + (record.centreX - record.width / 2) + 'px;' +
+		'top:' + (record.centreY - record.height / 2) + 'px;' +
+		'width:' + record.width + 'px;' +
+		'height:' + record.height + 'px;' +
+		'margin:0;z-index:40;' +
+		// Lying on its side in the frame it is first painted on. This is the
+		// state the volume page handed over in, and turning out of it is the
+		// whole move.
+		'transform:rotate(90deg);' +
+		// About its own middle, as on the way out. A folder in the drawer is
+		// hinged at its foot, and turned about the foot it would swing away
+		// instead of pivoting where it stands.
+		'transform-origin:50% 50%;' +
+		'translate:none;transition:none;pointer-events:none;';
+
+	// What is printed on the cover is not back yet: it was taken off early on
+	// the way out, because copy reflowing mid-flight gives the move away as a
+	// resize. It comes back as the folder lands.
+	proxy
+		.querySelectorAll('.folder__summary, .folder__colophon, .folder__heading')
+		.forEach((part) => {
+			part.style.opacity = '0';
+		});
+
+	document.body.appendChild(proxy);
+	// The real one is not in the drawer yet.
+	folder.style.visibility = 'hidden';
+
+	window.__vibeFoldReturnFolder = folder;
+	window.__vibeFoldReturnProxy = proxy;
+})();`} />
+
+		<script>
+			import { gsap } from 'gsap';
+
+			const record = window.__vibeFoldReturn;
+			const folder = window.__vibeFoldReturnFolder as HTMLElement | undefined;
+			const proxy = window.__vibeFoldReturnProxy as HTMLElement | undefined;
+			const root = document.documentElement;
+
+			const done = () => {
+				delete root.dataset.returning;
+			};
+
+			if (record && folder && proxy) {
+				const stack = folder.parentElement!;
+				const others = Array.from(stack.querySelectorAll<HTMLElement>('.folder')).filter(
+					(other) => other !== folder && other !== proxy,
+				);
+
+				// Where it belongs. The drawer is still hidden, and a rect is a
+				// layout box: being invisible does not change one.
+				const home = folder.getBoundingClientRect();
+
+				// The drawer's own transitions run at 1300ms. Left in place they
+				// would lag a frame behind every value the timeline writes.
+				others.forEach((other) => {
+					other.style.transition = 'none';
+				});
+
+				// Told to GSAP as well, so the turn it animates out of is the one
+				// the copy has been painted in since the page arrived.
+				gsap.set(proxy, { rotation: 90 });
+				gsap.set(others, { y: () => window.innerHeight });
+				gsap.set('.slogan__text', { opacity: 0, y: -32 });
+
+				// Everything is placed. Let the page show what it is holding.
+				root.dataset.returning = 'running';
+				gsap.set('.folder-stack', { opacity: 1 });
+
+				gsap
+					.timeline({ onComplete: done })
+					// 1. The folder is turned upright and filed — the carrying, undone.
+					.to(proxy, {
+						left: home.left,
+						top: home.top,
+						width: home.width,
+						height: home.height,
+						rotation: 0,
+						duration: 0.72,
+						ease: 'power3.inOut',
+					})
+					// The cover gets its printing back as it lands, the way it lost
+					// it as it left.
+					.to(
+						proxy.querySelectorAll('.folder__summary, .folder__colophon, .folder__heading'),
+						{ opacity: 1, duration: 0.28, ease: 'power2.out' },
+						'-=0.28',
+					)
+					// It is in the drawer. The copy has nothing left to do.
+					.call(() => {
+						folder.style.visibility = '';
+						proxy.remove();
+					})
+					// 2. And the rest of the drawer comes back up behind it, last
+					//    out first in, with the slogan.
+					.to(others, {
+						y: 0,
+						duration: 0.72,
+						ease: 'power2.out',
+						stagger: -0.06,
+					})
+					.to('.slogan__text', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, '<')
+					.call(() => {
+						others.forEach((other) => {
+							other.style.transition = '';
+							gsap.set(other, { clearProps: 'transform,translate' });
+						});
+						gsap.set('.slogan__text', { clearProps: 'opacity,transform' });
+						gsap.set('.folder-stack', { clearProps: 'opacity' });
+					});
+			} else if (record) {
+				// The copy never got made. Nothing to fly; show the page.
+				done();
+			}
+		</script>
+	)
+}
+
+<style is:global>
+	/* Held until the scripts have put everything where the way out left it. The
+	   same two things HomeIntro hides, for the same reason. */
+	html[data-returning='true'] .folder-stack,
+	html[data-returning='true'] .slogan__text {
+		opacity: 0;
+	}
+
+	/* The drawer clips what is pushed past its foot. The folders coming back up
+	   from below the fold need the same room HomeIntro lets out for them. */
+	html[data-returning='running'] .folders {
+		overflow-clip-margin: 60vh;
+	}
+</style>

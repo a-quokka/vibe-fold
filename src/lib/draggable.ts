@@ -87,7 +87,13 @@ export function makeDraggable(elements: HTMLElement[], options: DragOptions = {}
  *  band of the screen and lands somewhere in it.
  */
 export function scatter(elements: HTMLElement[], options: { spread?: number } = {}): void {
-	const header = parseFloat(getComputedStyle(document.documentElement).fontSize) * 7;
+	// The navigation's band. Nothing scattered lands in it.
+	const probe = document.createElement('div');
+	probe.style.cssText =
+		'position:fixed;left:0;top:0;width:0;height:var(--stage-clear);visibility:hidden';
+	document.body.appendChild(probe);
+	const header = probe.getBoundingClientRect().height;
+	probe.remove();
 	const margin = 24;
 	const spread = options.spread ?? 1;
 
@@ -97,7 +103,10 @@ export function scatter(elements: HTMLElement[], options: { spread?: number } = 
 
 		const band = (window.innerHeight - header - margin * 2 - height) / elements.length;
 		const top = header + margin + band * index + Math.random() * Math.max(0, band);
-		const left = margin + Math.random() * Math.max(0, window.innerWidth - width - margin * 2);
+		// The page's own width, not the window's: `innerWidth` counts the
+		// scrollbar and pushes the last of these off the right edge.
+		const page = document.documentElement.clientWidth;
+		const left = margin + Math.random() * Math.max(0, page - width - margin * 2);
 
 		element.style.left = `${Math.round(left)}px`;
 		element.style.top = `${Math.round(window.scrollY + top)}px`;

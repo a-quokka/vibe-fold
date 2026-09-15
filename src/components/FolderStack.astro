@@ -1,7 +1,6 @@
 ---
 import type { Volume } from '../lib/content';
 import { formatVolLabel, formatVolumeDate, volumeHref } from '../lib/content';
-import ClubMark from './ClubMark.astro';
 import { swatchAt } from '../lib/palette';
 
 interface Props {
@@ -11,9 +10,12 @@ interface Props {
 
 const { volumes, id } = Astro.props;
 
-const folders = volumes.map((volume, index) => ({
+/** Colour follows the volume, not its place in the drawer. The stack can be
+ *  reordered — and is — without a folder changing colour under the reader, and
+ *  the volume page picks the same swatch from the same number. */
+const folders = volumes.map((volume) => ({
 	volume,
-	swatch: swatchAt(index),
+	swatch: swatchAt(volume.number),
 }));
 
 ---
@@ -23,11 +25,19 @@ const folders = volumes.map((volume, index) => ({
 		{
 			folders.map(({ volume, swatch }, index) => {
 				const title = `${formatVolLabel(volume.number)} ${volume.title}`;
+				/** Nothing to open yet. The tab carries no name, the cover carries no
+				 *  copy, and the only thing the folder says is that it is coming. */
+				const soon = volume.status !== 'published';
+				/** Nothing stands in front of the frontmost folder, so its copy is
+				 *  already in the open and the button that would uncover it has
+				 *  nothing to push. It is left off rather than left inert. */
+				const front = index === folders.length - 1;
 
 				return (
 					<li
 						class="folder"
 						data-folder
+						data-soon={soon ? 'true' : undefined}
 						data-flip-id={`folder-${volume.volId}`}
 						style={`--folder-color: ${swatch.bg}; --folder-ink: ${swatch.ink}; --folder-depth: ${index};`}
 					>
@@ -37,7 +47,7 @@ const folders = volumes.map((volume, index) => ({
 						<div class="folder__tabs" aria-hidden="true">
 							<span class="tab" data-flip-id={`tab-${volume.volId}`}>
 								<span class="tab__shoulder tab__shoulder--start"></span>
-								<span class="tab__label">{title}</span>
+								<span class="tab__label">{soon ? '' : title}</span>
 								<span class="tab__shoulder tab__shoulder--end"></span>
 							</span>
 						</div>
@@ -53,12 +63,13 @@ const folders = volumes.map((volume, index) => ({
 						<div class="folder__hinge">
 						<div class="folder__front">
 						<h3 class="folder__heading">
+							{!front && (
 							<span class="folder__unfold">
 								{/* The reference's text button. Hovering it pushes every folder
 								    standing in front of this one down the stack, so this
 								    folder's copy comes into the open. */}
-								<span class="folder__button" data-unfold>
-									<span class="folder__title">{volume.title}</span>
+								<span class="folder__button" data-unfold={soon ? undefined : true}>
+									<span class="folder__title">{soon ? 'Coming soon' : volume.title}</span>
 									<svg class="folder__chevron" viewBox="0 0 24 24" aria-hidden="true">
 										<path
 											d="M5 9.5 12 16l7-6.5"
@@ -71,13 +82,14 @@ const folders = volumes.map((volume, index) => ({
 									</svg>
 								</span>
 							</span>
+							)}
 						</h3>
 
 						{/* Printed on the cover itself, as in the reference — not revealed
 						    on hover. Only the folder whose face is uncovered shows it;
 						    the rest are hidden behind the folders standing in front. */}
 						<div class="folder__summary">
-							{volume.summary
+							{!soon && volume.summary
 								.split(/\n\s*\n/)
 								.map((paragraph) => paragraph.trim())
 								.filter(Boolean)
@@ -99,10 +111,11 @@ const folders = volumes.map((volume, index) => ({
 						    the middle, the club's wordmark on the trailing edge. Only
 						    the frontmost folder's foot is on screen — the rest sit
 						    behind the folders standing in front of them. */}
-						<div class="folder__colophon" aria-hidden="true">
-							<span class="folder__date">{formatVolumeDate(volume.date)}</span>
-							<ClubMark />
-						</div>
+						{!soon && (
+							<div class="folder__colophon" aria-hidden="true">
+								<span class="folder__date">{formatVolumeDate(volume.date)}</span>
+							</div>
+						)}
 						</div>
 						</div>
 					</li>
@@ -114,7 +127,10 @@ const folders = volumes.map((volume, index) => ({
 
 <style>
 	.folders {
-		padding: var(--space-archive-y) var(--page-pad) 0;
+		/* Barely any air above the tabs. The band between the slogan and the
+		   drawer belongs to the slogan, and two lots of it read as a gap nobody
+		   put there on purpose. */
+		padding: var(--space-hero-gap) var(--page-pad) 0;
 		/* The folders pushed down the stack travel past the bottom of the section.
 		   Left unclipped that counts as scrollable overflow and the page grows a
 		   screenful every time a label is hovered. `clip` keeps the section from
@@ -361,6 +377,32 @@ const folders = volumes.map((volume, index) => ({
 		text-overflow: ellipsis;
 	}
 
+	/* Volumes with nothing in them yet.
+	 *
+	 * The tab carries no name, so it needs a width of its own — a tab is a
+	 * shape before it is a label, and the drawer reads as a drawer only if every
+	 * folder has one. The cover says nothing until the trailing edge is pointed
+	 * at, and then only that the volume is coming. */
+	.folder[data-soon='true'] .tab__label {
+		width: clamp(4.5rem, 9vw, 7rem);
+	}
+
+	.folder[data-soon='true'] .folder__button {
+		cursor: default;
+	}
+
+	/* Shown outright where there is no pointer to hover with. */
+	@media (hover: hover) and (pointer: fine) {
+		.folder[data-soon='true'] .folder__title {
+			opacity: 0;
+			transition: opacity 150ms var(--ease-out);
+		}
+
+		.folder[data-soon='true'] .folder__button:hover .folder__title {
+			opacity: 1;
+		}
+	}
+
 	.folder__summary p {
 		margin: 0;
 	}
@@ -371,22 +413,25 @@ const folders = volumes.map((volume, index) => ({
 
 	.folder__summary {
 		position: absolute;
-		/* Starts where the label's strip ends. The lip already carries a margin of
-		   its own around the label, so anything added here reads as a gap rather
-		   than as spacing — and it costs the copy the room at the top of the
-		   cover, which is the only part of it a folder behind ever shows. */
-		top: var(--folder-lip);
+		/* The cover's own margin, on all four sides. It used to start at the
+		   label's strip and hold a wider margin on the trailing edge to clear the
+		   button standing there; the button is gone from the frontmost folder and
+		   the copy is square with the rest of the cover now. */
+		top: var(--folder-inset);
 		right: var(--folder-inset);
-		/* The colophon stands on the same margin at the foot; the copy stops one
+		/* The date stands on the same margin at the foot; the copy stops one
 		   line-height short of it. */
-		bottom: calc(var(--folder-inset) + var(--size-club-mark) + 1.5rem);
+		bottom: calc(var(--folder-inset) + var(--text-meta) + 1.5rem);
 		left: var(--folder-inset);
 		display: grid;
 		/* The box is stretched to the cover's bottom, so without this the grid
 		   spreads its rows over the whole height and the paragraphs drift apart. */
 		align-content: start;
 		gap: 0.75em;
-		max-width: 44rem;
+		/* The cover's own margins are the measure — the box is already inset on
+		   both sides. A width on top of that was the third copy of this rule
+		   (the transition and the settled page each carry one), and the only one
+		   left still breaking the lines early. */
 		margin: 0;
 		font-size: var(--text-body);
 		line-height: var(--lh-body);
@@ -570,9 +615,6 @@ const folders = volumes.map((volume, index) => ({
 		right: var(--folder-inset);
 		bottom: var(--folder-inset);
 		left: var(--folder-inset);
-		display: flex;
-		align-items: flex-end;
-		justify-content: flex-end;
 		/* Printed on the cover, like the rest of it — the cover is the link. */
 		pointer-events: none;
 	}

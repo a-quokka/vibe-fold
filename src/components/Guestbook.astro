@@ -1,10 +1,10 @@
 ---
 /** The guestbook.
  *
- *  Pick out a line, choose 방명록 쓰기, and write something. What you write is
- *  pinned to the spot you picked, as a number. Press a number and the note
- *  comes back as a message on the left of the screen; it stays five seconds and
- *  goes, the way a notification does.
+ *  A button sits in the corner of the volume the whole time you are reading it.
+ *  Press it, write something, and what you wrote is dropped on the page as a
+ *  message — the same blue bubble the stickers use, in a spot nobody chose.
+ *  It can be pushed around like everything else lying on this desk.
  *
  *  Notes live in this browser only — `localStorage`, keyed by the page they
  *  were left on. There is no server behind this yet, so nobody else sees them.
@@ -12,24 +12,22 @@
 ---
 
 <div class="guestbook" data-guestbook>
-	{/* Where the notes are pinned. Page coordinates, so a pin stays on the words
-	    it belongs to however far the page is scrolled. */}
-	<div class="guestbook__pins" data-guestbook-pins></div>
+	{/* What has been left here, lying about the page. */}
+	<div class="guestbook__notes" data-guestbook-notes></div>
 
-	{/* Where a note comes back. Stacked down the leading edge, newest last. */}
-	<div class="guestbook__messages" data-guestbook-messages></div>
+	{/* The way in. Parked in the corner for as long as the volume is open. */}
+	<button class="gb-open pressable" type="button" data-guestbook-open hidden>방명록 남기기</button>
 
-	{/* The composer. Toolbar over the field, as the notes app has it. */}
 	<form class="composer glass" data-guestbook-composer hidden>
 		<header class="composer__bar">
 			<p class="composer__title">방명록</p>
 			<button class="composer__close pressable" type="button" data-guestbook-cancel aria-label="닫기">
 				<svg viewBox="0 0 24 24" aria-hidden="true">
 					<path
-						d="m7 7 10 10M17 7 7 17"
+						d="M6 6l12 12M18 6L6 18"
 						fill="none"
 						stroke="currentColor"
-						stroke-width="1.75"
+						stroke-width="1.6"
 						stroke-linecap="round"
 					/>
 				</svg>
@@ -38,127 +36,131 @@
 
 		<textarea
 			class="composer__field"
+			maxlength="200"
 			data-guestbook-field
-			rows="3"
-			maxlength="280"
+			rows="2"
 			placeholder="남기고 싶은 말을 적어 주세요"
+			aria-label="방명록"
 		></textarea>
 
 		<button class="composer__submit pressable" type="submit" data-guestbook-done>완료</button>
 
-		<p class="composer__toast glass" data-guestbook-toast hidden>입력된 내용이 없어요</p>
+		<p class="composer__toast glass" data-guestbook-toast hidden aria-live="polite"></p>
 	</form>
 </div>
 
 <style>
-	.guestbook__pins,
-	.guestbook__messages {
+	.guestbook__notes {
 		position: absolute;
 		inset: 0 auto auto 0;
+		/* With the stickers, over the work windows, under the navigation. */
+		z-index: 96;
 	}
 
-	/* The pin: the note's number, in pink, standing at the first point of the
-	   words it was left on — a footnote mark rather than a badge.
-
-	   Global, with the rest of what the script builds: Astro scopes a
-	   component's CSS to the elements it renders, and an element made in script
-	   carries none of that. */
-	:global(.gb-pin) {
-		position: absolute;
-		z-index: 60;
-		padding: 0;
+	/* The way in. */
+	.gb-open {
+		position: fixed;
+		right: clamp(1rem, 3vw, 2rem);
+		bottom: clamp(1rem, 3vw, 2rem);
+		z-index: 99;
+		display: inline-flex;
+		align-items: center;
+		padding: 0.6875rem 1.125rem;
 		border: 0;
-		background: none;
-		color: var(--color-select);
-		font-family: inherit;
-		font-size: 1.125rem;
-		font-weight: 700;
-		font-variant-numeric: tabular-nums;
+		border-radius: 999px;
+		background: rgb(28 28 30 / 0.62);
+		color: #ffffff;
+		font: inherit;
+		font-size: var(--text-meta);
+		font-weight: 600;
 		line-height: 1;
 		cursor: pointer;
-		/* Centred on the point the leading grip's knob stands on, so the number
-		   lands exactly where the selection began. */
-		translate: -50% -50%;
-		transition-property: scale;
+		backdrop-filter: blur(20px) saturate(180%);
+		-webkit-backdrop-filter: blur(20px) saturate(180%);
+		box-shadow: var(--glass-shadow);
+	}
+
+	.gb-open[hidden] {
+		display: none;
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.gb-open:hover {
+			background: rgb(28 28 30 / 0.78);
+		}
+	}
+
+	.gb-open:focus-visible {
+		outline: 2px solid var(--color-select);
+		outline-offset: 3px;
+	}
+
+	/* What was left. The stickers' own message bubble, carrying somebody's
+	   words instead of the site's. Scoped styles do not reach a node built in
+	   script, so these are global and named for it. */
+	:global(.gb-note) {
+		position: absolute;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 0.25rem;
+		user-select: none;
+		cursor: grab;
+		opacity: 0;
+		translate: 0 14px;
+		scale: 0.92;
+		transition-property: opacity, translate, scale;
+		transition-duration: 200ms, 420ms, 420ms;
+		transition-timing-function: var(--ease-out), var(--ease-back), var(--ease-back);
+	}
+
+	:global(.gb-note[data-shown='true']) {
+		opacity: 1;
+		translate: 0 0;
+		scale: 1;
+	}
+
+	:global(.gb-note[data-dragging='true']) {
+		cursor: grabbing;
+		scale: 1.02;
 		transition-duration: 150ms;
 		transition-timing-function: var(--ease-out);
 	}
 
-	:global(.gb-pin:hover) {
-		scale: 1.15;
-	}
-
-	:global(.gb-pin:active) {
-		scale: 0.95;
-	}
-
-	/* The message. Same glass as the selection callout, with the tail a message
-	   bubble has, stacked down the leading edge of the screen. */
-	.guestbook__messages {
-		position: fixed;
-		top: calc(var(--h-header) + 0.5rem);
-		left: var(--page-pad);
-		/* Under the bar: the messages stack below it and never need to cross it. */
-		z-index: 70;
-		display: flex;
-		flex-direction: column;
-		gap: 0.625rem;
-		width: min(20rem, calc(100vw - 2 * var(--page-pad)));
-		pointer-events: none;
-	}
-
-	:global(.gb-message) {
+	:global(.gb-note__bubble) {
 		position: relative;
-		display: flex;
-		align-items: flex-start;
-		gap: 0.625rem;
-		padding: 0.75rem 0.9375rem;
-		border-radius: 1.125rem 1.125rem 1.125rem 0.25rem;
-		background: var(--glass-bg);
-		color: var(--color-text);
-		font-size: var(--text-body);
-		line-height: var(--lh-body);
-		box-shadow: var(--glass-shadow);
-		backdrop-filter: var(--glass-blur);
-		-webkit-backdrop-filter: var(--glass-blur);
-		animation: message-in 320ms var(--ease-out) both;
-	}
-
-	:global(.gb-message[data-leaving='true']) {
-		animation: message-out 260ms var(--ease-out) both;
-	}
-
-	:global(.gb-message__number) {
-		flex: none;
-		display: grid;
-		place-items: center;
-		width: 1.375rem;
-		height: 1.375rem;
-		border-radius: 50%;
-		background: var(--color-select);
+		/* Somebody else's sentence has no length you can plan for. It runs to
+		   here and then wraps.
+		
+		   `max-content` first: the layer these are dropped on is an absolutely
+		   positioned box with no width of its own, so an auto-width child is
+		   handed nothing to fill and wraps after every character. The second
+		   term keeps it inside a phone, where 360px is wider than the screen. */
+		width: max-content;
+		max-width: min(360px, calc(100vw - 4rem));
+		padding: 0.625rem 0.875rem;
+		border-radius: 1.125rem;
+		background: #0a84ff;
 		color: #ffffff;
-		font-size: 0.75rem;
-		font-weight: 600;
-		font-variant-numeric: tabular-nums;
-		line-height: 1;
-	}
-
-	:global(.gb-message__text) {
-		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.3;
 		overflow-wrap: anywhere;
+		box-shadow: 0 12px 30px -14px rgb(10 132 255 / 0.9);
 	}
 
-	@keyframes message-in {
-		from {
-			opacity: 0;
-			translate: -12px 0;
-		}
+	:global(.gb-note__time) {
+		font-size: 0.6875rem;
+		color: rgb(255 255 255 / 0.6);
+		/* A stamp of nothing but digits — they should stand in their columns. */
+		font-variant-numeric: tabular-nums;
 	}
 
-	@keyframes message-out {
-		to {
-			opacity: 0;
-			translate: -12px 0;
+	@media (prefers-reduced-motion: reduce) {
+		:global(.gb-note) {
+			translate: 0 0;
+			scale: 1;
+			transition-property: opacity;
+			transition-duration: 200ms;
 		}
 	}
 
@@ -258,8 +260,8 @@
 		padding: 0.875rem;
 		border: 0;
 		border-radius: 0.75rem;
-		background: var(--color-select);
-		color: #ffffff;
+		background: #ffffff;
+		color: #111111;
 		font-family: inherit;
 		font-size: var(--text-body);
 		font-weight: 600;
@@ -306,90 +308,183 @@
 </style>
 
 <script>
-	type Note = { id: string; number: number; text: string; x: number; y: number; at: number };
+	import { makeDraggable } from '../lib/draggable';
+	import { fetchNotes, postNote, LIMIT, type Note } from '../lib/guestbook-store';
 
-	const pins = document.querySelector<HTMLElement>('[data-guestbook-pins]');
-	const messages = document.querySelector<HTMLElement>('[data-guestbook-messages]');
+	/** A note on screen: what was written, and where this reader's page happens
+	 *  to have put it. The spot is not stored anywhere — see the store. */
+	type Placed = Note & { x: number; y: number };
+
+	/** How many of the page's notes are shown at once, and how long a writer
+	 *  waits between notes. The cap is so a well-signed volume stays a page and
+	 *  not a wall; the pause is so a slip of the finger does not post twice. */
+	const SHOWN = 14;
+	const PAUSE = 20_000;
+
+	const layer = document.querySelector<HTMLElement>('[data-guestbook-notes]');
+	const opener = document.querySelector<HTMLButtonElement>('[data-guestbook-open]');
 	const composer = document.querySelector<HTMLFormElement>('[data-guestbook-composer]');
 	const field = document.querySelector<HTMLTextAreaElement>('[data-guestbook-field]');
-	const done = document.querySelector<HTMLButtonElement>('[data-guestbook-done]');
 	const cancel = document.querySelector<HTMLButtonElement>('[data-guestbook-cancel]');
 	const toast = document.querySelector<HTMLElement>('[data-guestbook-toast]');
 
-	if (pins && messages && composer && field && done && cancel) {
-		/** Notes are kept per page: a note is about the words it was left on. The
-		 *  version in the key retires everything written before the numbers moved
-		 *  to the end of the selection — those notes point at the wrong spot. */
+	if (layer && opener && composer && field && cancel) {
+		/** A volume is the thing worth signing. The front page is a drawer, and
+		 *  the chapters are somebody else's work inside their own frame. */
 		const PAGE = location.pathname.replace(/\/+$/, '') || '/';
-		const KEY = `vibe-fold:guestbook:v3:${PAGE}`;
-
-		// Every earlier round of notes is retired with its key: they were written
-		// against numbers that stood somewhere else.
-		try {
-			localStorage.removeItem(`vibe-fold:guestbook:${PAGE}`);
-			localStorage.removeItem(`vibe-fold:guestbook:v2:${PAGE}`);
-		} catch {
-			// Nothing to clear if storage is not there to begin with.
-		}
-
-		const read = (): Note[] => {
+		const onVolume = /^\/vol\/[^/]+$/.test(PAGE);
+		// Every earlier round is retired with its key. Those notes were kept in
+		// this browser and were never anybody else's to read; there is no way to
+		// send them on, and leaving them would show one reader a page nobody
+		// else can see.
+		['', 'v2:', 'v3:', 'v4:'].forEach((v) => {
 			try {
-				const raw = localStorage.getItem(KEY);
-				return raw ? (JSON.parse(raw) as Note[]) : [];
+				localStorage.removeItem(`vibe-fold:guestbook:${v}${PAGE}`);
 			} catch {
-				return [];
+				// Nothing to clear if storage is not there to begin with.
+			}
+		});
+
+		/** The last time this browser left a note. The only thing still kept
+		 *  here — it is about the hand holding the pen, not about the book. */
+		const PACE = 'vibe-fold:guestbook:last';
+
+		const tooSoon = () => {
+			try {
+				const last = Number(localStorage.getItem(PACE) || 0);
+				return Date.now() - last < PAUSE;
+			} catch {
+				return false;
 			}
 		};
 
-		const write = (notes: Note[]) => {
+		const markPace = () => {
 			try {
-				localStorage.setItem(KEY, JSON.stringify(notes));
+				localStorage.setItem(PACE, String(Date.now()));
 			} catch {
-				// Private browsing: the note lives as long as the page does.
+				// Nothing to remember it with. One note at a time is not worth
+				// refusing over.
 			}
 		};
 
-		let notes = read();
-		/** Where the note being written belongs, taken from the selection that
-		 *  opened the composer. */
-		let anchor = { x: 0, y: 0 };
-
-		const show = (note: Note) => {
-			const bubble = document.createElement('div');
-			bubble.className = 'gb-message';
-			bubble.innerHTML = `<span class="gb-message__number"></span><p class="gb-message__text"></p>`;
-			bubble.querySelector('.gb-message__number')!.textContent = String(note.number);
-			bubble.querySelector('.gb-message__text')!.textContent = note.text;
-			messages.appendChild(bubble);
-
-			// Five seconds, then out — a note is a passing remark, not a fixture.
-			window.setTimeout(() => {
-				bubble.dataset.leaving = 'true';
-				bubble.addEventListener('animationend', () => bubble.remove(), { once: true });
-				// A reduced-motion visitor gets no animation to end on.
-				window.setTimeout(() => bubble.remove(), 400);
-			}, 5000);
+		/** The band across the top belongs to the navigation, and a note dropped
+		 *  against `innerWidth` lands past the right edge — that measure counts
+		 *  the scrollbar. Both are the stickers' own rules. */
+		const clearBand = () => {
+			const probe = document.createElement('div');
+			probe.style.cssText =
+				'position:fixed;left:0;top:0;width:0;height:var(--stage-clear);visibility:hidden';
+			document.body.appendChild(probe);
+			const height = probe.getBoundingClientRect().height;
+			probe.remove();
+			return height;
 		};
+
+		const MARGIN = 16;
+
+		const place = (note: HTMLElement) => {
+			const page = document.documentElement.clientWidth;
+			const band = clearBand();
+			const width = note.offsetWidth;
+			const height = note.offsetHeight;
+			const left = MARGIN + Math.random() * Math.max(0, page - width - MARGIN * 2);
+			const top =
+				window.scrollY +
+				band +
+				MARGIN +
+				Math.random() * Math.max(0, window.innerHeight - band - height - MARGIN * 2);
+			return { left: Math.round(left), top: Math.round(top) };
+		};
+
+		/** `26.02.12 10:42 PM` — the reader's own clock at the moment the note was
+		 *  left. Written out by hand rather than handed to a locale, so the shape
+		 *  stays the same wherever the page is opened. */
+		const clock = (at: number) => {
+			const d = new Date(at);
+			const pad = (n: number) => String(n).padStart(2, '0');
+			const hour = d.getHours();
+			const date = `${pad(d.getFullYear() % 100)}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+			const time = `${pad(hour % 12 || 12)}:${pad(d.getMinutes())} ${hour < 12 ? 'AM' : 'PM'}`;
+			return `${date} ${time}`;
+		};
+
+		const nodes: HTMLElement[] = [];
 
 		const drop = (note: Note) => {
-			const pin = document.createElement('button');
-			pin.type = 'button';
-			pin.className = 'gb-pin';
-			pin.style.left = `${note.x}px`;
-			pin.style.top = `${note.y}px`;
-			pin.textContent = String(note.number);
-			pin.setAttribute('aria-label', `방명록 ${note.number}번 보기`);
-			pin.addEventListener('click', () => show(note));
-			pins.appendChild(pin);
+			const placed = note as Placed;
+			const el = document.createElement('div');
+			el.className = 'gb-note';
+			el.innerHTML = '<p class="gb-note__bubble"></p><span class="gb-note__time"></span>';
+			el.querySelector('.gb-note__bubble')!.textContent = note.text;
+			el.querySelector('.gb-note__time')!.textContent = clock(note.at);
+			layer.appendChild(el);
+
+			// Measured after it is in the document: where it lands depends on how
+			// tall the sentence turned out.
+			const spot = place(el);
+			placed.x = spot.left;
+			placed.y = spot.top;
+
+			const page = document.documentElement.clientWidth;
+			const x = Math.min(placed.x, Math.max(MARGIN, page - el.offsetWidth - MARGIN));
+			el.style.left = `${Math.max(MARGIN, x)}px`;
+			el.style.top = `${placed.y}px`;
+
+			nodes.push(el);
+			makeDraggable([el]);
+			window.requestAnimationFrame(() => {
+				el.dataset.shown = 'true';
+			});
 		};
 
-		notes.forEach(drop);
+		/** Not before the folder has opened.
+		 *
+		 *  Notes are placed against the window, and on a volume page the window
+		 *  is busy: a folder flies in, grows and swings open over it. A note
+		 *  dropped during that lands on a page whose measurements are still
+		 *  changing, and it reads as litter thrown across the transition rather
+		 *  than as something left on the paper.
+		 *
+		 *  The transition holds `data-opening` on the root for as long as it is
+		 *  running. Arriving without one — a refresh, a bookmark — there is no
+		 *  attribute and nothing to wait for. */
+		const lay = async () => {
+			opener.hidden = false;
+			const written = await fetchNotes(PAGE, SHOWN);
+			written.forEach(drop);
+		};
+
+		if (onVolume) {
+			if (document.documentElement.dataset.opening === undefined) {
+				lay();
+			} else {
+				const watcher = new MutationObserver(() => {
+					if (document.documentElement.dataset.opening !== undefined) return;
+					watcher.disconnect();
+					window.clearTimeout(fallback);
+					lay();
+				});
+				watcher.observe(document.documentElement, {
+					attributes: true,
+					attributeFilter: ['data-opening'],
+				});
+
+				// However the transition ends — finished, cut short, never started
+				// because the frame clock never ran — the notes are laid out.
+				const fallback = window.setTimeout(() => {
+					watcher.disconnect();
+					lay();
+				}, 4000);
+			}
+		}
 
 		let toastTimer = 0;
 
-		/** The one thing that can go wrong here: nothing was written. */
-		const complain = () => {
+		/** What went wrong, said in the composer itself rather than anywhere the
+		 *  writer has to go looking. */
+		const complain = (what: string) => {
 			if (!toast) return;
+			toast.textContent = what;
 			toast.hidden = false;
 			window.clearTimeout(toastTimer);
 			toastTimer = window.setTimeout(() => {
@@ -403,16 +498,12 @@
 			if (toast) toast.hidden = true;
 		};
 
-		const open = (detail: { x: number; y: number }) => {
-			anchor = { x: detail.x, y: detail.y };
+		const open = () => {
 			composer.hidden = false;
 			field.focus();
 		};
 
-		window.addEventListener('vibe-fold:guestbook', (event) => {
-			const detail = (event as CustomEvent).detail ?? {};
-			open({ x: detail.x ?? 0, y: detail.y ?? 0 });
-		});
+		opener.addEventListener('click', open);
 
 		field.addEventListener('keydown', (event) => {
 			if (event.key === 'Escape') close();
@@ -429,27 +520,27 @@
 		composer.addEventListener('submit', (event) => {
 			event.preventDefault();
 
-			const text = field.value.trim();
+			const text = field.value.trim().slice(0, LIMIT);
 			if (!text) {
-				complain();
+				complain('입력된 내용이 없어요');
 				field.focus();
 				return;
 			}
 
-			const note: Note = {
-				id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
-				number: notes.length + 1,
-				text,
-				x: anchor.x,
-				y: anchor.y,
-				at: Date.now(),
-			};
+			if (tooSoon()) {
+				complain('조금 뒤에 한 번 더 남겨 주세요');
+				return;
+			}
 
-			notes = [...notes, note];
-			write(notes);
-			drop(note);
-			show(note);
+			// Put on the page at once, and sent on its way. The writer should see
+			// their own note land whether or not the table is reachable — and if
+			// it was not, the note stays for as long as they are here, which is
+			// the honest version of what happened.
+			drop({ id: `local-${Date.now()}`, text, at: Date.now() });
+			markPace();
 			close();
+
+			postNote(PAGE, text);
 		});
 	}
 </script>

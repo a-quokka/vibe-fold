@@ -29,6 +29,10 @@
 	 *  down: the size it is holding when the screen changes. */
 	const HANDOFF = 'vibe-fold:handoff';
 
+	/** What the page keeps on either side of a folder, opened or turned. The
+	 *  same 16px the stage tokens hold to. */
+	const MARGIN = 16;
+
 	/** A length written in CSS, measured rather than parsed — both halves of the
 	 *  transition read their geometry from the same custom properties. */
 	function cssLength(property: string): number {
@@ -53,34 +57,71 @@
 		);
 		const from = folder.getBoundingClientRect();
 
-		/** Where it is going. It crosses at the size it is already standing at:
-		 *  a folder being picked up off a desk does not get smaller on the way to
-		 *  the eye, and the only size it changes is the one it gains when it is
-		 *  opened out on the other side. */
+		/** How big it may be when it gets there.
+		 *
+		 *  It crosses at the size it is already standing at — a folder picked up
+		 *  off a desk does not shrink on the way to the eye — right up until that
+		 *  will not fit. Turned a quarter, the folder is as wide as it is now
+		 *  tall, and on a phone that is the whole height of the drawer laid
+		 *  across a screen a third as wide. So it gives back only what it has to,
+		 *  and keeps the page's 16px on either hand. */
+		const page = document.documentElement.clientWidth;
+		/** The tab belongs to the folder's width, not to its own. Turned, it
+		 *  stands off the trailing edge and its height is the room it takes
+		 *  there, so it comes out of the space the folder has to fit into and
+		 *  the pair is centred together — centred on the folder alone, the tab
+		 *  hangs over the margin on the right. */
+		const tab = cssLength('--tab-height');
+		const room = page - MARGIN * 2 - tab;
+		const shrink = Math.min(1, room / from.height);
+		const size = { width: from.width * shrink, height: from.height * shrink };
+		const centreX = page / 2 - tab / 2;
+
+		/** Centred, but never into the navigation's band. Wherever it stops is
+		 *  where the next page has to start, and the quarter turn happens on that
+		 *  spot: turned, the folder is as tall as it is now wide, so the half it
+		 *  has to keep clear of the band is the larger of the two. What that
+		 *  pushes past the bottom of the screen goes past the bottom of the
+		 *  screen — there is nothing down there to protect. */
+		const clear = cssLength('--stage-clear');
+		const turned = Math.max(size.width, size.height) / 2;
+		const centreY = Math.max(window.innerHeight / 2, clear + turned);
 		const to = {
-			width: from.width,
-			height: from.height,
-			left: (window.innerWidth - from.width) / 2,
-			// Not centred: hung from the top, with the navigation's band left
-			// clear above it. What hangs below the screen hangs below the screen.
-			top: cssLength('--stage-top'),
+			width: size.width,
+			height: size.height,
+			left: centreX - size.width / 2,
+			top: centreY - size.height / 2,
 		};
 
-		try {
-			sessionStorage.setItem(
-				HANDOFF,
-				JSON.stringify({
-					id: folder.dataset.flipId ?? '',
-					// What it is holding when the screen changes — the size it
-					// flew to, not the size it set off from.
-					width: to.width,
-					height: to.height,
-					at: Date.now(),
-				}),
-			);
-		} catch {
-			// Private browsing: the volume page simply opens at its own size.
-		}
+		/** What it is holding when the screen changes, and where on the screen it
+		 *  is holding it. The next page puts a folder down on that exact spot, so
+		 *  the change of page has nothing in it to see.
+		 *
+		 *  Stamped when the page is actually left, not now. The flight takes a
+		 *  second and a half, and the reader on the other side treats an old
+		 *  record as somebody who arrived some other way — written here, the
+		 *  animation was spending most of the record's life before the next page
+		 *  had even been asked for, and on a real connection the rest went to
+		 *  fetching it. The record then read as stale and the volume page opened
+		 *  the way it does for a bookmark. On localhost that never happened,
+		 *  which is why the two looked like different transitions. */
+		const handOver = () => {
+			try {
+				sessionStorage.setItem(
+					HANDOFF,
+					JSON.stringify({
+						id: folder.dataset.flipId ?? '',
+						width: to.width,
+						height: to.height,
+						centreX: to.left + to.width / 2,
+						centreY: to.top + to.height / 2,
+						at: Date.now(),
+					}),
+				);
+			} catch {
+				// Private browsing: the volume page simply opens at its own size.
+			}
+		};
 
 		const proxy = folder.cloneNode(true) as HTMLElement;
 		HOVER_STATE.forEach((key) => delete proxy.dataset[key]);
@@ -94,12 +135,22 @@
 			margin: 0;
 			z-index: 40;
 			transform: none;
+			/* About its own middle. In the stack a folder is hinged at its foot —
+			   that is what a cover opens about — and the clone inherits that
+			   origin. Turned about the foot, the quarter turn swings the folder
+			   down and to the right instead of pivoting where it stands. */
+			transform-origin: 50% 50%;
 			translate: none;
 			transition: none;
 			pointer-events: none;
 		`;
+		/** Parked, not shown. A clone on `document.body` sits above the whole
+		 *  stack whatever its z-index — it is in another stacking context — so a
+		 *  folder taken from the back of the drawer would jump in front of every
+		 *  folder still standing ahead of it. The original stays where it is,
+		 *  at its own depth, until those have left. */
+		proxy.style.visibility = 'hidden';
 		document.body.appendChild(proxy);
-		folder.style.visibility = 'hidden';
 
 		// The stack's own transitions run at 1300ms. Left in place they would lag
 		// a frame behind every value the timeline writes.
@@ -109,12 +160,15 @@
 
 		const timeline = gsap.timeline({
 			onComplete: () => {
+				handOver();
 				window.location.href = href;
 			},
 		});
 
 		// 1. Everything else leaves. The folders drop out of the bottom of the
 		//    stack — the section clips them — and the tagline fades off the top.
+		//    The chosen folder does not move yet: it is still the one in the
+		//    drawer, and the ones ahead of it travel over it as they go.
 		timeline
 			.to(
 				others,
@@ -127,24 +181,37 @@
 				0,
 			)
 			.to('.slogan', { opacity: 0, y: -32, duration: 0.5, ease: 'power2.in' }, 0)
+			// The stack is clear. From here the folder is a thing being carried
+			// rather than a thing standing in a drawer, so the clone takes over.
+			.call(() => {
+				proxy.style.visibility = '';
+				folder.style.visibility = 'hidden';
+			})
 			// What is printed on the cover goes early: the sheet is about to change
 			// shape under it, and copy reflowing mid-flight is the one thing that
 			// gives the move away as a resize.
 			.to(
 				proxy.querySelectorAll('.folder__summary, .folder__colophon, .folder__heading'),
 				{ opacity: 0, duration: 0.28, ease: 'power2.out' },
-				0,
+				'<',
 			)
-			// 2. The folder takes the tagline's place — moving, not resizing.
+			// 2. The folder comes to the middle of the screen and turns a quarter
+			//    to the right as it goes — the tab leaves the top edge and finishes
+			//    on the trailing one, which is the way a folder is held to be read
+			//    rather than to be filed. The page changes with it already turned:
+			//    the turn belongs to the picking up, not to the arriving.
 			.to(
 				proxy,
 				{
 					left: to.left,
 					top: to.top,
-					duration: 0.86,
+					width: to.width,
+					height: to.height,
+					rotation: 90,
+					duration: 0.72,
 					ease: 'power3.inOut',
 				},
-				0.14,
+				'<',
 			);
 	}
 

@@ -61,7 +61,9 @@
 	--text-display: clamp(2.25rem, 2.8vw, 3.25rem);
 	--text-brand: 1.125rem;
 	--text-brand-sm: 1rem;
-	--text-nav: clamp(0.875rem, 1.6vw, 1.25rem);
+	/* Smaller than body. The menu is a set of labels, not reading matter, and at
+	 * body size in capitals it would outweigh the wordmark. */
+	--text-nav: clamp(0.6875rem, 0.9vw, 0.8125rem);
 	/* Reference header is 69px tall, transparent, and sits over the page. */
 	/* 45px wordmark inside a 56px bar left 5px of air top and bottom. The
 	 * references sit at ~10px; this goes a little wider still. */
@@ -89,7 +91,12 @@
 	 * the tagline's own size, not to the viewport alone. A flat 62svh on a tall
 	 * narrow window left the sentence stranded in a field of black; eleven lines
 	 * of its own type is the same proportion the wide layout lands on. */
-	--space-slogan-min-h: min(62svh, calc(var(--text-slogan) * 11));
+	--space-slogan-min-h: min(44svh, calc(var(--text-slogan) * 7));
+	/* The band between the slogan and the top of the drawer. The slogan sits
+	 * centred in its own box above this, so what the eye reads as the gap is
+	 * this plus whatever that centring leaves under the last line — about 150px
+	 * together at a desktop width. */
+	--space-hero-gap: 2.375rem;
 	/* Reference sets its mark at 71px tall. Ours is a wider 35:25 lockup, so it
 	   matches on height and lands a little wider. */
 	--size-brand-mark: clamp(1.625rem, 2.6vw, 2.125rem);
@@ -111,7 +118,7 @@
 	/* Everything printed on a cover sits inside this margin — one value for all
 	 * four sides, so the copy reads as centred on the sheet rather than pushed
 	 * against one edge. */
-	--folder-inset: 3.5rem;
+	--folder-inset: 1.875rem;
 	--folder-radius: 12px;
 	--folder-overlap: 4px;
 	--folder-shadow: 0 -1px 8px rgb(0 0 0 / 0.15);
@@ -214,12 +221,30 @@
 	 * folder arrives low and what falls past the bottom of the screen falls past
 	 * the bottom of the screen. */
 	--stage-top: 31.25rem;
+	/* The band across the top of every page that belongs to the navigation and
+	 * to nothing else. The wordmark and the links sit in it; the folder, the
+	 * sheet, the work windows and the stickers all start below it. It is wider
+	 * than the header needs — that is the point: the header has air around it
+	 * rather than a thing pressed against its underside. */
+	--stage-clear: 12.5rem;
 	/* Opened, the folder lies out: the sheet inside it is the measure the volume
 	 * is read at, and that measure is a page width, not a folder's. The folder
 	 * grows to hold it — 7rem of its own stock around the sheet, the trailing
 	 * side carrying the tab. Closed it is --stage-w; this is what it opens to. */
-	--stage-paper-w: min(80rem, calc(100vw - 12rem));
+	/* 760px of sheet, and never wider. Below the width that allows it the
+	 * folder gives way instead of the margin: the page keeps 16px on each side
+	 * of the folder at every size, and the sheet inside takes what is left after
+	 * the folder's own 3.5rem of stock on either hand. What the opened cover
+	 * throws past the edge of the screen is allowed past the edge of the screen;
+	 * this is about the folder, not about the spread.
+	 *
+	 * The tab counts. It stands on the folder's trailing edge and its own height
+	 * is the width it takes there, so the folder has to give that back or the
+	 * two together run past the margin and the page scrolls sideways.
+	 */
+	--stage-paper-w: min(47.5rem, calc(100vw - 9rem - var(--tab-height)));
 	--stage-open-w: calc(var(--stage-paper-w) + 7rem);
+
 }
 
 /* Tablet and below. A folder as tall as the window is right on a wide screen,

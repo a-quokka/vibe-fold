@@ -16,7 +16,12 @@
 	// Set on the element itself, before anything paints. A module script is
 	// deferred, and by the time one runs the page has already shown the slogan
 	// and the stack sitting in their finished positions.
-	document.documentElement.dataset.intro = 'pending';
+	// Not when the page is being come back to. FolderReturn runs just before
+	// this and claims the stack: a folder is flying in to be filed, and two
+	// entrances cannot both have the drawer.
+	if (!document.documentElement.dataset.returning) {
+		document.documentElement.dataset.intro = 'pending';
+	}
 </script>
 
 <style is:global>
@@ -25,21 +30,35 @@
 		opacity: 0;
 	}
 
-	/* Splitting into letters makes every letter a break opportunity, and the
-	   slogan starts wrapping mid-word. The word is what holds together. */
-	.slogan__word {
-		display: inline-block;
-		white-space: nowrap;
+	/* The drawer clips what is pushed past its foot, so the page does not grow a
+	   screenful every time a label is pointed at. While the folders are arriving
+	   that same clip cuts them off at the section's bottom edge, and a folder
+	   travelling up from below reads as one whose foot is nailed down and whose
+	   length is changing. The clip region is let out for the entrance only —
+	   `overflow-clip-margin` moves where the cut falls without adding a pixel of
+	   scrollable page. */
+	html[data-intro='running'] .folders {
+		overflow-clip-margin: 60vh;
 	}
 
-	/* The letter rises from behind its own edge rather than from nothing. */
-	.slogan__char {
+	/* The word rises from behind its own edge rather than from nothing.
+	 *
+	 * The box is drawn around the word and not around each letter, and that is
+	 * a measurement decision rather than a stylistic one. A box per letter
+	 * rounds every letter's advance to a whole pixel and cuts the kerning
+	 * between it and its neighbour; across this line that came to 3.5px of
+	 * extra width, which the slogan gave back in one visible jump the moment
+	 * the plain text was restored. Per word the line measures the same to a
+	 * hundredth of a pixel, because the kerning that matters all happens
+	 * inside a word. */
+	.slogan__word {
 		display: inline-block;
 		overflow: hidden;
 		vertical-align: bottom;
+		white-space: nowrap;
 	}
 
-	.slogan__char > span {
+	.slogan__word > span {
 		display: inline-block;
 		will-change: transform;
 	}
@@ -55,43 +74,52 @@
 
 	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	/** Wrap every character in a clipped box of its own and hand back the
-	 *  characters, grouped into the lines they actually landed on. Measured
-	 *  rather than declared: the slogan is balanced by the browser, so where it
-	 *  breaks depends on the width it was given. */
+	/** Set by the split, called when the timeline is done. */
+	let restore: (() => void) | null = null;
+
+	/** Wrap every word in a clipped box of its own and hand back the words,
+	 *  grouped into the lines they actually landed on. Measured rather than
+	 *  declared: the slogan is balanced by the browser, so where it breaks
+	 *  depends on the width it was given.
+	 *
+	 *  A line rises as one piece, so the split only has to be fine enough to
+	 *  tell the lines apart — and the word is the smallest unit that can be
+	 *  boxed without changing what the line measures. */
 	const splitLines = (element: HTMLElement): HTMLElement[][] => {
 		const text = element.textContent ?? '';
 		element.textContent = '';
+		// Put back when the entrance is over. Every word is its own inline-block
+		// while the animation runs, and a selection drawn across them comes out
+		// as a row of separate boxes — the browser highlights each box, not the
+		// line.
+		restore = () => {
+			element.textContent = text;
+		};
 
-		const chars: HTMLElement[] = [];
+		const words: HTMLElement[] = [];
 		text.split(/(\s+)/).forEach((token) => {
-			if (token === '' ) return;
+			if (token === '') return;
 			if (/^\s+$/.test(token)) {
 				element.append(token);
 				return;
 			}
 
-			const word = document.createElement('span');
-			word.className = 'slogan__word';
-			for (const character of token) {
-				const mask = document.createElement('span');
-				mask.className = 'slogan__char';
-				const inner = document.createElement('span');
-				inner.textContent = character;
-				mask.append(inner);
-				word.append(mask);
-				chars.push(inner);
-			}
-			element.append(word);
+			const mask = document.createElement('span');
+			mask.className = 'slogan__word';
+			const inner = document.createElement('span');
+			inner.textContent = token;
+			mask.append(inner);
+			element.append(mask);
+			words.push(inner);
 		});
 
 		const lines = new Map<number, HTMLElement[]>();
-		chars.forEach((char) => {
-			// Rounded: characters on one line differ by a fraction of a pixel.
-			const top = Math.round(char.getBoundingClientRect().top);
+		words.forEach((word) => {
+			// Rounded: words on one line differ by a fraction of a pixel.
+			const top = Math.round(word.getBoundingClientRect().top);
 			const line = lines.get(top);
-			if (line) line.push(char);
-			else lines.set(top, [char]);
+			if (line) line.push(word);
+			else lines.set(top, [word]);
 		});
 
 		return Array.from(lines.entries())
@@ -100,10 +128,12 @@
 	};
 
 	const play = () => {
-		// Nothing is hidden any more; from here the timeline holds the positions.
-		delete root.dataset.intro;
+		// Nothing is hidden any more; from here the timeline holds the positions,
+		// and the drawer's clip is let out until they have all landed.
+		root.dataset.intro = 'running';
 
 		if (reduced) {
+			delete root.dataset.intro;
 			gsap.fromTo(
 				[stack, title].filter(Boolean),
 				{ opacity: 0 },
@@ -113,7 +143,23 @@
 		}
 
 		const lines = title ? splitLines(title) : [];
-		const timeline = gsap.timeline({ defaults: { ease: 'power4.out' } });
+		/** Put the page back the way it will live: the slogan one run of text
+		 *  again, the drawer clipping at its own foot. Safe to call twice.
+		 *
+		 *  Also on a timer, because `onComplete` rides on the frame clock and a
+		 *  tab that is scrolled away, backgrounded or throttled may not get
+		 *  enough frames to reach the end. Left half-done the slogan stays a row
+		 *  of separate boxes, and a selection drawn across it comes out ragged. */
+		let done = false;
+		const finish = () => {
+			if (done) return;
+			done = true;
+			restore?.();
+			delete root.dataset.intro;
+		};
+
+		const timeline = gsap.timeline({ defaults: { ease: 'power4.out' }, onComplete: finish });
+		window.setTimeout(finish, 3000);
 
 		if (stack) gsap.set(stack, { opacity: 1 });
 
@@ -129,15 +175,26 @@
 		if (folders.length > 0) {
 			timeline.fromTo(
 				folders,
-				{ yPercent: 28, scale: 1.03 },
+				{ yPercent: 28 },
 				{
 					yPercent: 0,
-					scale: 1,
 					duration: 0.85,
 					stagger: 0.07,
+					/** A folder arriving, not a folder being stretched.
+					 *
+					 *  The scale that used to ride along with this came out as a
+					 *  change of length: a folder is hinged at its foot — that is
+					 *  what a cover opens about — so its transform origin is the
+					 *  bottom edge, and anything scaled about that edge grows and
+					 *  shrinks upward with its foot nailed down. Moving is the whole
+					 *  of it now, and the overshoot is what makes it land rather
+					 *  than stop. */
+					ease: 'back.out(1.3)',
 					// Handed back to CSS: from here the tilt and the push are the
-					// stack's own business, and an inline transform would outrank them.
-					clearProps: 'scale,transform',
+					// stack's own business, and an inline transform would outrank
+					// them. `translate` is listed because the push rides on that
+					// property and GSAP folds it into its own matrix on the way in.
+					clearProps: 'transform,translate,scale,rotate',
 				},
 				0,
 			);
@@ -157,7 +214,13 @@
 	};
 
 	// The slogan has to be measured to be split, and it cannot be measured until
-	// its font is the one it will be set in.
-	if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(play);
-	else play();
+	// its font is the one it will be set in. Unless the page is being come back
+	// to, in which case FolderReturn has the entrance and this one stands down.
+	if (root.dataset.returning) {
+		// nothing: the way back brings the stack and the slogan in itself.
+	} else if (document.fonts && document.fonts.status !== 'loaded') {
+		document.fonts.ready.then(play);
+	} else {
+		play();
+	}
 </script>
