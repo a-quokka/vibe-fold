@@ -1632,7 +1632,10 @@
 							film.pause();
 							return;
 						}
-						film.currentTime = 0;
+						// Wound back only once the file knows its own length. Seeking
+						// a video that has not got its metadata yet is refused on a
+						// phone, and the play that follows goes with it.
+						if (film.readyState >= 1) film.currentTime = 0;
 						const started = film.play();
 						if (started && typeof started.catch === 'function') started.catch(() => {});
 					});
@@ -1789,9 +1792,44 @@
 				const unlock = () => {
 					if (stirred) return;
 					stirred = true;
+
+					/** Every element, one at a time.
+					 *
+					 *  A phone does not unlock *sound*; it unlocks each piece of
+					 *  media separately, and only when that piece was asked to play
+					 *  inside the gesture itself. Waking one take and trusting the
+					 *  rest to follow is what left her silent later on — the voice
+					 *  at the end had never been asked for while a finger was down,
+					 *  so when its turn came it was refused.
+					 *
+					 *  Asked for at nothing, stopped, and wound back: the reader
+					 *  hears none of this, and afterwards every one of them can be
+					 *  started whenever the piece wants it. */
+					const prime = (el) => {
+						// Already running — leave it alone. Stopping and rewinding
+						// whatever is playing at the moment of the first touch is
+						// the one thing this must not do.
+						if (!el.paused) return;
+						const was = el.volume;
+						el.volume = 0;
+						const back = () => {
+							el.pause();
+							el.currentTime = 0;
+							el.volume = was;
+						};
+						try {
+							const asked = el.play();
+							if (asked && typeof asked.then === 'function') asked.then(back).catch(back);
+							else back();
+						} catch {
+							el.volume = was;
+						}
+					};
+
+					takes.forEach(prime);
+					beds.forEach(prime);
+
 					if (muted) return;
-					const take = takes.get(queue[queueAt]);
-					if (take && !take.paused) return;
 					settled = '';
 					settle();
 				};
@@ -1875,6 +1913,18 @@
 						open(`question-${answers.length}`);
 						return;
 					}
+					/** The last answer is in, so the piece already knows what it
+					 *  will say — but on a phone that file has not been fetched: the
+					 *  nine possible replies are held back until one of them is
+					 *  wanted, which is exactly too late. Now there are a few
+					 *  seconds of convergence to fetch it in. */
+					const coming = takes.get(`remark-${verdict()}`);
+					if (coming) coming.load();
+					const closing = takes.get('final');
+					if (closing) closing.load();
+					const ground = beds.get('convergence');
+					if (ground) ground.load();
+
 					converge();
 				};
 
@@ -1969,6 +2019,11 @@
 					ask(0);
 					open('question-0');
 					gauge();
+
+					// The film behind the questions is wanted in a moment; a phone
+					// will not have started on it yet.
+					const asking = beds.get('question');
+					if (asking) asking.load();
 				};
 
 				const reset = () => {
