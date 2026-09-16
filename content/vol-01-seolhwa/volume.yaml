@@ -11,6 +11,8 @@ summary: |
 date: 2026
 # 나온 볼륨이 방을 마주봅니다. 준비 중인 폴더들은 그 뒤에 섭니다.
 shelf: 2
+# 표지에 거는 작품입니다.
+cover: ch-bak-eul-tada
 status: published
 featured: false
 chapters:

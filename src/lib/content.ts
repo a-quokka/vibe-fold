@@ -29,6 +29,10 @@ export interface VolumeMeta {
 	shelf?: number;
 	featured?: boolean;
 	example?: boolean;
+	/** 표지에 걸 작품의 폴더 이름입니다. 적지 않으면 첫 작품을 씁니다.
+	 *  표지는 볼륨의 얼굴이므로, 가장 먼저 실린 작품이 아니라 그 볼륨을
+	 *  가장 잘 말해 주는 작품을 고를 수 있어야 합니다. */
+	cover?: string;
 }
 
 export interface ChapterMeta {
@@ -159,7 +163,7 @@ export function getAllVolumes(): Volume[] {
 			example: Boolean(meta.example),
 			volId,
 			dirName: entry.name,
-			coverSrc: chapters[0]?.thumbSrc,
+			coverSrc: (meta.cover && chapters.find((c) => c.id === meta.cover)?.thumbSrc) ?? chapters[0]?.thumbSrc,
 			chapters,
 		});
 	}

@@ -43,6 +43,12 @@ const folders = volumes.map((volume) => ({
 		{
 			folders.map(({ volume, swatch, tabSpot }, index) => {
 				const title = `${formatVolLabel(volume.number)} ${volume.title}`;
+				/** 탭에 적히는 말입니다. 볼륨 이름은 표지에 크게 적히므로, 탭은
+				 *  몇 번째인지만 말합니다. 서랍에서 탭이 하는 일은 이름을 밝히는
+				 *  것이 아니라 순서를 짚는 것입니다. */
+				const tabText = `PROJECT ${String(volume.number).padStart(2, '0')}`;
+				/** 표지에 싣는 한 줄입니다. 소개글의 첫 문단만 씁니다. */
+				const lead = volume.summary?.split(/\n\s*\n/)[0]?.trim() ?? '';
 				/** Nothing to open yet. The tab carries no name, the cover carries no
 				 *  copy, and the only thing the folder says is that it is coming. */
 				const soon = volume.status !== 'published';
@@ -76,7 +82,7 @@ const folders = volumes.map((volume) => ({
 								{/* 아직 이름을 밝히지 않은 폴더는 탭에 이름 대신 준비 중이라고
 								    적습니다. 빈 탭은 무엇이 들어올 자리인지도 말해 주지 않아서,
 								    만들다 만 화면처럼 보였습니다. */}
-								<span class="tab__label">{blank ? '커밍순' : title}</span>
+								<span class="tab__label">{tabText}</span>
 								<span class="tab__shoulder tab__shoulder--end"></span>
 							</span>
 						</div>
@@ -92,20 +98,15 @@ const folders = volumes.map((volume) => ({
 						<div class="folder__hinge">
 						<div class="folder__front">
 						<h3 class="folder__heading">
-							{!front && (
+							{/* 펼쳐지는 폴더에만 표를 답니다. 준비 중인 폴더는 눌러도 열리지
+							    않으므로, 방향을 가리키는 표가 서 있으면 약속을 어기는
+							    셈입니다. 맨 앞 폴더는 이미 펼쳐져 있어 가리킬 곳이 없습니다. */}
+							{!front && !soon && (
 							<span class="folder__unfold">
-								{/* The reference's text button. Hovering it pushes every folder
-								    standing in front of this one down the stack, so this
-								    folder's copy comes into the open. */}
+								{/* 펼침을 부르는 자리입니다. 여기에 볼륨 이름을 한 번 더 적지
+								    않는 이유는, 이름이 탭과 표지에 이미 두 번 적혀 있기
+								    때문입니다. 남는 것은 방향을 가리키는 표뿐입니다. */}
 								<span class="folder__button" data-unfold={soon ? undefined : true}>
-									{/* 이름이 있는 준비 중 폴더는 여기에 아무것도 적지 않습니다.
-									    제목은 탭에 이미 적혀 있고, 같은 이름을 표지 오른쪽에 한 번
-									    더 적으면 눌러야 할 것처럼 보이는데 실제로는 펼쳐지지
-									    않습니다. 아직 이름을 밝히지 않은 폴더만 Coming soon 을
-									    적어서, 그 자리가 비어 있는 이유를 말해 줍니다. */}
-									{!named && (
-										<span class="folder__title">{blank ? 'Coming soon' : volume.title}</span>
-									)}
 									<svg class="folder__chevron" viewBox="0 0 24 24" aria-hidden="true">
 										<path
 											d="M5 9.5 12 16l7-6.5"
@@ -121,37 +122,29 @@ const folders = volumes.map((volume) => ({
 							)}
 						</h3>
 
-						{/* Printed on the cover itself, as in the reference — not revealed
-						    on hover. Only the folder whose face is uncovered shows it;
-						    the rest are hidden behind the folders standing in front. */}
-						<div class="folder__summary">
-							{!blank && volume.summary
-								.split(/\n\s*\n/)
-								.map((paragraph) => paragraph.trim())
-								.filter(Boolean)
-								.map((paragraph) => (
-									<p>
-										{/* One sentence per line. A sentence too long for the
-										    cover still wraps, but it never shares a line with
-										    the next one. */}
-										{paragraph
-											.split(/(?<=[.!?])\s+/)
-											.map((sentence) => sentence.trim())
-											.filter(Boolean)
-											.map((sentence) => <span class="folder__line">{sentence}</span>)}
-									</p>
-								))}
+						{/* 표지의 얼굴입니다. 왼쪽에 이름과 한 줄 소개, 오른쪽에 그 볼륨을
+						    대표하는 그림 한 장. 소개글을 전부 싣던 예전 표지는 읽을거리가
+						    되어서, 정작 무슨 볼륨인지가 눈에 들어오지 않았습니다. */}
+						<div class="folder__face">
+							<div class="folder__copy">
+								<p class="folder__when">{formatVolumeDate(volume.date)}</p>
+								<p class="folder__name">{blank ? 'Coming soon' : volume.title}</p>
+								{lead && <p class="folder__blurb">{lead}</p>}
+								{!soon && <span class="folder__go">VIEW PROJECT ↗</span>}
+							</div>
+
+							<div class="folder__shot">
+								{volume.coverSrc ? (
+									<img src={volume.coverSrc} alt="" loading="lazy" draggable="false" />
+								) : (
+									/* 아직 작품이 없는 볼륨입니다. 빈자리를 그대로 두면 표지가
+									   덜 만들어진 것처럼 보이므로, 비어 있다는 사실 자체를
+									   그려 둡니다. */
+									<span class="folder__empty">준비 중</span>
+								)}
+							</div>
 						</div>
 
-						{/* Foot of the cover, as in the reference: the volume's date in
-						    the middle, the club's wordmark on the trailing edge. Only
-						    the frontmost folder's foot is on screen — the rest sit
-						    behind the folders standing in front of them. */}
-						{!soon && (
-							<div class="folder__colophon" aria-hidden="true">
-								<span class="folder__date">{formatVolumeDate(volume.date)}</span>
-							</div>
-						)}
 						</div>
 						</div>
 					</li>
@@ -427,120 +420,118 @@ const folders = volumes.map((volume) => ({
 		cursor: default;
 	}
 
-	/* Shown outright where there is no pointer to hover with. */
-	@media (hover: hover) and (pointer: fine) {
-		.folder[data-blank='true'] .folder__title {
-			opacity: 0;
-			transition: opacity 150ms var(--ease-out);
-		}
-
-		.folder[data-blank='true'] .folder__button:hover .folder__title {
-			opacity: 1;
-		}
-	}
-
-	.folder__summary p {
-		margin: 0;
-	}
-
-	.folder__line {
-		display: block;
-	}
-
-	.folder__summary {
+	/* 표지의 얼굴. 왼쪽은 글, 오른쪽은 그림 한 장입니다. */
+	.folder__face {
 		position: absolute;
-		/* The cover's own margin, on all four sides. It used to start at the
-		   label's strip and hold a wider margin on the trailing edge to clear the
-		   button standing there; the button is gone from the frontmost folder and
-		   the copy is square with the rest of the cover now. */
 		top: var(--folder-inset);
 		right: var(--folder-inset);
-		/* The date stands on the same margin at the foot; the copy stops one
-		   line-height short of it. */
-		bottom: calc(var(--folder-inset) + var(--text-meta) + 1.5rem);
+		bottom: var(--folder-inset);
 		left: var(--folder-inset);
 		display: grid;
-		/* The box is stretched to the cover's bottom, so without this the grid
-		   spreads its rows over the whole height and the paragraphs drift apart. */
-		align-content: start;
-		gap: 0.75em;
-		/* The cover's own margins are the measure — the box is already inset on
-		   both sides. A width on top of that was the third copy of this rule
-		   (the transition and the settled page each carry one), and the only one
-		   left still breaking the lines early. */
-		margin: 0;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+		align-items: start;
+		gap: clamp(1rem, 4%, 3rem);
+	}
+
+	/* 간격을 하나로 두지 않고 층을 나눕니다. 날짜는 제목에 딸린 것이라
+	   바싹 붙고, 소개는 한 걸음 떨어지며, 누르는 자리는 가장 멀리 섭니다.
+	   전부 같은 간격이면 네 줄이 한 덩어리로 읽혀서 무엇이 무엇에 딸린
+	   것인지 알 수 없습니다. */
+	.folder__copy {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		min-width: 0;
+	}
+
+	.folder__when {
+		margin-bottom: 0.45rem;
+	}
+
+	.folder__name {
+		margin-bottom: 1.1rem;
+	}
+
+	.folder__blurb {
+		margin-bottom: 1.7rem;
+	}
+
+	/* 글자마다 제 왼쪽 여백이 달라서, 상자를 맞춰 두어도 잉크는 어긋납니다.
+	   제목은 다른 줄보다 글자가 훨씬 커서 그 차이가 1px 가까이 벌어집니다.
+	   눈이 보는 것은 상자가 아니라 잉크이므로 그만큼 당깁니다. */
+	.folder__name {
+		text-indent: -0.02em;
+	}
+
+	.folder__when {
+		margin-top: 0;
+		font-size: var(--text-meta);
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		opacity: 0.6;
+	}
+
+	/* 표지에서 가장 먼저 읽히는 것. 레퍼런스의 제목만큼 크게 둡니다. */
+	.folder__name {
+		margin-top: 0;
+		font-size: clamp(1.6rem, 3.8vw, 3.1rem);
+		font-weight: 700;
+		line-height: 1;
+		letter-spacing: -0.02em;
+	}
+
+	/* 제목 아래 한 줄. 표지는 읽는 자리가 아니라 고르는 자리이므로, 소개글
+	   전체가 아니라 첫 문단만 작게 싣습니다. */
+	.folder__blurb {
+		margin-top: 0;
+		max-width: 38ch;
 		font-size: var(--text-body);
 		line-height: var(--lh-body);
-		/* The cover is the link; the copy printed on it must not intercept. */
-		pointer-events: none;
+		opacity: 0.78;
 	}
 
-	/* The whole cover is a link to the volume, as in the reference; the unfold
-	   strip and the chapter tabs sit above it and take their own clicks. */
-	.folder__page {
-		position: absolute;
-		inset: 0;
-		z-index: 1;
-		border-radius: inherit;
-	}
-
-	.folder__page:focus-visible {
-		outline: 2px solid currentColor;
-		outline-offset: -4px;
-	}
-
-	.folder__heading {
-		position: relative;
-		z-index: 2;
-		margin: 0;
-		font-size: inherit;
-		font-weight: inherit;
-	}
-
-	/* Label sits at the right, as in the reference — that keeps the left half of
-	   the lip clear for the tabs, and the whole strip is the unfold trigger. */
-	.folder__unfold {
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-		width: 100%;
-		height: var(--folder-lip);
-		/* 24px off the trailing edge, at every width — it is a control, and a
-		   control keeps its own distance from the corner rather than lining up
-		   with the copy printed on the cover. */
-		padding: 0 1.5rem 0 var(--folder-inset);
-		color: inherit;
-		text-align: right;
-		/* The strip is printed on the cover; only the text button inside it takes
-		   the pointer, so the rest of the lip still belongs to the cover's link. */
-		pointer-events: none;
-	}
-
-	/* The hover target itself: the words and the chevron, nothing more. Giving
-	   the whole lip this job meant the copy opened while the pointer was still
-	   crossing empty cover. */
-	.folder__button {
-		pointer-events: auto;
-		display: inline-flex;
-		align-items: center;
-		/* Tight: the chevron belongs to the word, not beside it. */
-		gap: clamp(0.375rem, 0.6vw, 0.5rem);
-		height: 100%;
-		cursor: pointer;
-	}
-
-	.folder__vol {
-		flex: none;
+	.folder__go {
+		padding-bottom: 0.3rem;
+		border-bottom: 1px solid currentColor;
 		font-size: var(--text-meta);
-		opacity: 0.75;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
 	}
 
-	.folder__title {
-		flex: 0 1 auto;
-		min-width: 0;
-		font-size: var(--text-folder-label);
-		font-weight: 400;
-		overflow-wrap: anywhere;
+	/* 오른쪽의 그림 한 장. 표지 아래쪽으로 잘려도 괜찮습니다 — 뒤에 선
+	   폴더에서는 어차피 윗부분만 보입니다. */
+	.folder__shot {
+		display: grid;
+		place-items: center;
+		aspect-ratio: 4 / 3;
+		overflow: hidden;
+		background: oklch(0 0 0 / 0.07);
+	}
+
+	.folder__shot img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	/* 아직 작품이 없는 볼륨의 자리입니다. */
+	.folder__empty {
+		font-size: var(--text-meta);
+		letter-spacing: 0.14em;
+		opacity: 0.45;
+	}
+
+	/* 좁은 화면에서는 그림을 내리고 글만 남깁니다. 둘을 나란히 두기에는
+	   표지가 좁아서, 그림이 우표만 해집니다. */
+	@media (max-width: 48rem) {
+		.folder__face {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.folder__shot {
+			display: none;
+		}
 	}
 
 	.folder__chevron {
@@ -684,10 +675,6 @@ const folders = volumes.map((volume) => ({
 			padding: 0.125rem 0.625rem 0;
 		}
 
-		.folder__summary {
-			font-size: var(--text-meta);
-		}
-
 		.folder__vol {
 			display: none;
 		}
@@ -777,8 +764,8 @@ const folders = volumes.map((volume) => ({
 	const revealDistance = (index: number): number => {
 		const folder = folders[index];
 		const next = folders[index + 1];
-		const summary = folder?.querySelector<HTMLElement>('.folder__summary');
-		const last = summary?.lastElementChild as HTMLElement | null;
+		const summary = folder?.querySelector<HTMLElement>('.folder__face');
+		const last = summary?.querySelector<HTMLElement>('.folder__copy');
 		if (!folder || !next) return 0;
 
 		// 소개글이 없는 폴더는 드러낼 내용도 없습니다. 준비 중이라는 사실
