@@ -1,0 +1,12 @@
+id: vol-03-next
+number: 3
+slug: next
+title: Coming soon
+# MZ 뒤에 섭니다. 아직 아무 내용도 없는 폴더라 앞에 나설 이유가 없습니다.
+shelf: 0
+# 소개가 없는 볼륨은 이름도 밝히지 않습니다 — 탭이 비고, 표지에는
+# Coming soon 만 섭니다. 무엇이 될지 아직 말할 것이 없을 때의 모습입니다.
+date: 2026
+status: coming_soon
+featured: false
+chapters: []

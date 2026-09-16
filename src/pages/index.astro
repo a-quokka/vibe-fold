@@ -4,15 +4,24 @@ import SiteHeader from '../components/SiteHeader.astro';
 import FolderStack from '../components/FolderStack.astro';
 import HomeIntro from '../components/HomeIntro.astro';
 import FolderReturn from '../components/FolderReturn.astro';
+import HeroScatter from '../components/HeroScatter.astro';
+import JoinCta from '../components/JoinCta.astro';
 import ClubMark from '../components/ClubMark.astro';
-import { getAllVolumes } from '../lib/content';
+import { getAllVolumes, onShelf } from '../lib/content';
 
-/** Only what is out. Volumes still being made have a folder design of their own
- *  — a blank tab that answers "Coming soon" when the trailing edge is pointed
- *  at, see FolderStack — but an empty drawer standing in front of the one
- *  volume there is says less than the volume does. Drop the filter to put them
- *  back. */
-const volumes = getAllVolumes().filter((volume) => volume.status === 'published');
+/** Everything in the drawer, made or being made.
+ *
+ *  A volume still being worked on is worth standing up — somebody looking at
+ *  this should be able to see that there is more coming, and what it is going
+ *  to be. What it cannot do is open: the cover carries no link and the tab no
+ *  unfold, so a folder with nothing in it is a thing to look at, not a door
+ *  that leads nowhere. Where they stand is set by `shelf` in each volume.yaml,
+ *  which keeps the published one facing the room. */
+const everything = getAllVolumes();
+
+/** 서랍에는 선반에 있는 볼륨만 섭니다. 내려둔 볼륨은 폴더로 세우지
+ *  않습니다. */
+const volumes = everything.filter(onShelf);
 ---
 
 <BaseLayout title="Vibe Fold" bodyClass="page-home">
@@ -31,7 +40,10 @@ const volumes = getAllVolumes().filter((volume) => volume.status === 'published'
 
 		<section class="slogan" aria-label="Vibe Fold">
 			<h1 class="slogan__text">We publish visual stories that move the world</h1>
-
+			{/* 흩뿌리는 그림은 저장소에 있는 작품 전부입니다. 폴더에서 내려둔
+			    볼륨의 작품도 만들어진 작품이므로 걸어 둡니다. 다만 볼륨이
+			    나오지 않았으면 열어 볼 자리가 없어서 링크는 걸리지 않습니다. */}
+			<HeroScatter volumes={everything} />
 		</section>
 
 		<FolderStack volumes={volumes} id="featured" />
@@ -42,9 +54,12 @@ const volumes = getAllVolumes().filter((volume) => volume.status === 'published'
 		    change of page and back in again. */}
 		<FolderReturn phase="carry" />
 
-		{/* Whose archive this is. It used to be printed in the corner of the
-		    frontmost cover, where it belonged to one volume rather than to the
-		    site; at the foot of the page it signs the whole drawer. */}
+		{/* The way in, and then whose archive this is. Asking comes first: the
+		    wordmark is a signature and a signature is the last thing on a page. */}
+		<div class="home__join">
+			<JoinCta />
+		</div>
+
 		<footer class="home__foot">
 			<ClubMark />
 		</footer>
@@ -96,14 +111,28 @@ const volumes = getAllVolumes().filter((volume) => volume.status === 'published'
 
 
 
+	.home__join {
+		display: flex;
+		justify-content: center;
+		padding: var(--space-hero-gap) var(--page-pad) 0;
+	}
+
 	.home__foot {
 		display: flex;
 		justify-content: center;
 		/* 40px off the foot of the page, centred across its whole measure. */
-		padding: var(--space-hero-gap) var(--page-pad) 2.5rem;
+		padding: 2rem var(--page-pad) 2.5rem;
 		/* It signs the page; it does not announce it. */
 		color: var(--color-text);
 		opacity: 0.45;
+	}
+
+	/* 흩어 놓은 그림들 위에 글자가 놓입니다. 겹치는 자리에서 글자가 그림에
+	   묻히지 않도록, 글자 쪽을 앞에 세우고 옅은 그늘을 깔아 둡니다. */
+	.slogan__text {
+		position: relative;
+		z-index: 1;
+		text-shadow: 0 1px 14px var(--color-bg);
 	}
 
 	.slogan__text {

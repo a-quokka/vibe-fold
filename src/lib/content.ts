@@ -2,7 +2,18 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
-export type VolumeStatus = 'published' | 'coming_soon';
+/** Where a volume stands.
+ *
+ *  `published` is out and can be opened. `coming_soon` is on the shelf with
+ *  nothing in it yet — a closed folder that says so. `shelved` is neither:
+ *  the files are kept but the volume is not on the shelf at all, which is how
+ *  something is taken down without being thrown away. */
+export type VolumeStatus = 'published' | 'coming_soon' | 'shelved';
+
+/** What stands in the drawer. Everything but what has been taken down. */
+export function onShelf(volume: VolumeMeta): boolean {
+	return volume.status !== 'shelved';
+}
 
 export interface VolumeMeta {
 	id: string;

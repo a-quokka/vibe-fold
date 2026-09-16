@@ -13,9 +13,27 @@ const { volumes, id } = Astro.props;
 /** Colour follows the volume, not its place in the drawer. The stack can be
  *  reordered — and is — without a folder changing colour under the reader, and
  *  the volume page picks the same swatch from the same number. */
+/** 탭이 서는 자리입니다.
+ *
+ *  서랍에 꽂힌 서류철은 탭이 한 줄로 맞춰져 있지 않습니다. 저마다 조금씩
+ *  어긋나 있어야 한 묶음이 아니라 여러 권으로 보이고, 탭을 눈으로 구분해
+ *  집어낼 수 있습니다.
+ *
+ *  한가운데는 비워 둡니다. 가운데에 선 탭은 표지에 적힌 제목과 세로로
+ *  겹쳐서, 둘이 한 덩어리처럼 읽히기 때문입니다.
+ *
+ *  자리는 볼륨 번호에서 뽑습니다. 새로고침할 때마다 탭이 옮겨 다니면
+ *  그것은 흐트러진 서랍이 아니라 고장 난 화면으로 보입니다. */
+const TAB_SPOTS = ['26%', '64%', '33%', '72%', '11%'];
+
 const folders = volumes.map((volume) => ({
 	volume,
 	swatch: swatchAt(volume.number),
+	/** 나온 볼륨의 탭은 제자리에 둡니다. 읽는 사람이 가장 먼저 찾아야 하는
+	 *  탭이고, 그것까지 어긋나 있으면 서랍이 흐트러진 것이 아니라 기준이
+	 *  없는 것처럼 보입니다. 자리를 섞는 것은 뒤에 선 준비 중인 폴더들뿐
+	 *  입니다. */
+	tabSpot: volume.status === 'published' ? '0%' : TAB_SPOTS[volume.number % TAB_SPOTS.length],
 }));
 
 ---
@@ -23,11 +41,17 @@ const folders = volumes.map((volume) => ({
 <section class="folders" id={id} aria-label="Volumes">
 	<ul class="folder-stack" style={`--folder-count: ${folders.length};`}>
 		{
-			folders.map(({ volume, swatch }, index) => {
+			folders.map(({ volume, swatch, tabSpot }, index) => {
 				const title = `${formatVolLabel(volume.number)} ${volume.title}`;
 				/** Nothing to open yet. The tab carries no name, the cover carries no
 				 *  copy, and the only thing the folder says is that it is coming. */
 				const soon = volume.status !== 'published';
+				/** A volume can be on its way and still have a name. One that has
+				 *  written down what it will be says so on its cover and keeps its
+				 *  tab; one that has not is a blank tab and the words Coming soon,
+				 *  which is the whole of what there is to say about it. */
+				const named = soon && Boolean(volume.summary?.trim());
+				const blank = soon && !named;
 				/** Nothing stands in front of the frontmost folder, so its copy is
 				 *  already in the open and the button that would uncover it has
 				 *  nothing to push. It is left off rather than left inert. */
@@ -37,9 +61,11 @@ const folders = volumes.map((volume) => ({
 					<li
 						class="folder"
 						data-folder
+						data-vol={volume.volId}
 						data-soon={soon ? 'true' : undefined}
+						data-blank={blank ? 'true' : undefined}
 						data-flip-id={`folder-${volume.volId}`}
-						style={`--folder-color: ${swatch.bg}; --folder-ink: ${swatch.ink}; --folder-depth: ${index};`}
+						style={`--folder-color: ${swatch.bg}; --folder-ink: ${swatch.ink}; --folder-depth: ${index}; --tab-spot: ${tabSpot};`}
 					>
 						{/* One tab per folder, carrying the theme. Hovering it opens the
 						    folder; it is not a control, so it takes no clicks and no
@@ -47,7 +73,10 @@ const folders = volumes.map((volume) => ({
 						<div class="folder__tabs" aria-hidden="true">
 							<span class="tab" data-flip-id={`tab-${volume.volId}`}>
 								<span class="tab__shoulder tab__shoulder--start"></span>
-								<span class="tab__label">{soon ? '' : title}</span>
+								{/* 아직 이름을 밝히지 않은 폴더는 탭에 이름 대신 준비 중이라고
+								    적습니다. 빈 탭은 무엇이 들어올 자리인지도 말해 주지 않아서,
+								    만들다 만 화면처럼 보였습니다. */}
+								<span class="tab__label">{blank ? '커밍순' : title}</span>
 								<span class="tab__shoulder tab__shoulder--end"></span>
 							</span>
 						</div>
@@ -69,7 +98,14 @@ const folders = volumes.map((volume) => ({
 								    standing in front of this one down the stack, so this
 								    folder's copy comes into the open. */}
 								<span class="folder__button" data-unfold={soon ? undefined : true}>
-									<span class="folder__title">{soon ? 'Coming soon' : volume.title}</span>
+									{/* 이름이 있는 준비 중 폴더는 여기에 아무것도 적지 않습니다.
+									    제목은 탭에 이미 적혀 있고, 같은 이름을 표지 오른쪽에 한 번
+									    더 적으면 눌러야 할 것처럼 보이는데 실제로는 펼쳐지지
+									    않습니다. 아직 이름을 밝히지 않은 폴더만 Coming soon 을
+									    적어서, 그 자리가 비어 있는 이유를 말해 줍니다. */}
+									{!named && (
+										<span class="folder__title">{blank ? 'Coming soon' : volume.title}</span>
+									)}
 									<svg class="folder__chevron" viewBox="0 0 24 24" aria-hidden="true">
 										<path
 											d="M5 9.5 12 16l7-6.5"
@@ -89,7 +125,7 @@ const folders = volumes.map((volume) => ({
 						    on hover. Only the folder whose face is uncovered shows it;
 						    the rest are hidden behind the folders standing in front. */}
 						<div class="folder__summary">
-							{!soon && volume.summary
+							{!blank && volume.summary
 								.split(/\n\s*\n/)
 								.map((paragraph) => paragraph.trim())
 								.filter(Boolean)
@@ -295,7 +331,9 @@ const folders = volumes.map((volume) => ({
 		pointer-events: none;
 		bottom: 100%;
 		left: var(--folder-inset);
-		right: 34%;
+		/* 탭이 표지의 오른쪽 절반에도 설 수 있도록 줄을 표지 폭만큼 넓게
+		   둡니다. 예전에는 34% 지점에서 잘라 탭이 왼쪽에만 모였습니다. */
+		right: var(--folder-inset);
 		display: flex;
 		align-items: flex-end;
 		/* Across only: the row still cuts tabs off at its trailing edge, but the
@@ -306,6 +344,8 @@ const folders = volumes.map((volume) => ({
 	}
 
 	.tab {
+		/* 이 폴더에 주어진 자리에서 시작합니다. 값이 없으면 왼쪽 끝입니다. */
+		margin-inline-start: var(--tab-spot, 0%);
 		/* The tab shape itself is the hover target — its painted area only, so
 		   the gaps between the shoulder curves stay inert. */
 		pointer-events: auto;
@@ -383,22 +423,18 @@ const folders = volumes.map((volume) => ({
 	 * shape before it is a label, and the drawer reads as a drawer only if every
 	 * folder has one. The cover says nothing until the trailing edge is pointed
 	 * at, and then only that the volume is coming. */
-	.folder[data-soon='true'] .tab__label {
-		width: clamp(4.5rem, 9vw, 7rem);
-	}
-
 	.folder[data-soon='true'] .folder__button {
 		cursor: default;
 	}
 
 	/* Shown outright where there is no pointer to hover with. */
 	@media (hover: hover) and (pointer: fine) {
-		.folder[data-soon='true'] .folder__title {
+		.folder[data-blank='true'] .folder__title {
 			opacity: 0;
 			transition: opacity 150ms var(--ease-out);
 		}
 
-		.folder[data-soon='true'] .folder__button:hover .folder__title {
+		.folder[data-blank='true'] .folder__button:hover .folder__title {
 			opacity: 1;
 		}
 	}
@@ -743,7 +779,11 @@ const folders = volumes.map((volume) => ({
 		const next = folders[index + 1];
 		const summary = folder?.querySelector<HTMLElement>('.folder__summary');
 		const last = summary?.lastElementChild as HTMLElement | null;
-		if (!folder || !next || !summary || !last) return 0;
+		if (!folder || !next) return 0;
+
+		// 소개글이 없는 폴더는 드러낼 내용도 없습니다. 준비 중이라는 사실
+		// 자체는 표지에 이미 적혀 있으므로 앞의 폴더를 밀어낼 이유가 없습니다.
+		if (!summary || !last) return 0;
 
 		const inset = summary.offsetLeft;
 		const copyEnds = summary.offsetTop + last.offsetTop + last.offsetHeight;
@@ -782,6 +822,12 @@ const folders = volumes.map((volume) => ({
 		folder.addEventListener('pointerenter', (event) => {
 			if (!isMouse(event)) return;
 			peek(index);
+			// 가려진 폴더를 가리키면 그 앞에 선 폴더들이 내려가서 소개글이
+			// 드러납니다. 예전에는 펼침 버튼에만 걸려 있었는데, 준비 중인
+			// 폴더에는 그 버튼이 없기 때문에 소개글을 볼 방법이 없었습니다.
+			// 맨 앞 폴더는 이미 제 소개글이 드러나 있고 앞에 밀어낼 폴더도
+			// 없으므로 제외합니다.
+			reveal(index < front ? index : null);
 		});
 
 		const button = folder.querySelector<HTMLElement>('[data-unfold]');

@@ -9,6 +9,8 @@ summary: |
 
   한 편의 설화 속으로 들어가, 그 세계의 인물을 마주하는 순간 이야기는 더 이상 과거의 것이 아니라, 지금 우리의 이야기가 됩니다.
 date: 2026
+# 나온 볼륨이 방을 마주봅니다. 준비 중인 폴더들은 그 뒤에 섭니다.
+shelf: 2
 status: published
 featured: false
 chapters:

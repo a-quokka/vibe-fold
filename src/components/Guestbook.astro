@@ -522,13 +522,13 @@
 
 			const text = field.value.trim().slice(0, LIMIT);
 			if (!text) {
-				complain('입력된 내용이 없어요');
+				complain('내용을 입력해 주세요.');
 				field.focus();
 				return;
 			}
 
 			if (tooSoon()) {
-				complain('조금 뒤에 한 번 더 남겨 주세요');
+				complain('방금 남기셨습니다. 잠시 뒤에 다시 남겨 주세요.');
 				return;
 			}
 

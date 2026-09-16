@@ -1,0 +1,13 @@
+id: vol-02-mz
+number: 2
+slug: mz
+title: MZ
+# 서랍에 서는 자리. 번호는 이름이라 바꿀 수 없고, 이것만 바꿉니다.
+# 공개된 볼륨이 방을 마주보고, 준비 중인 것들은 그 뒤에 섭니다.
+shelf: 1
+summary: |
+  줄임말과 밈처럼 잠깐 쓰이다가 사라지는 말들을 다룹니다. 십 년 뒤에는 아무도 기억하지 못할 표현을 지금 기록해 두려고 합니다.
+date: 2026
+status: coming_soon
+featured: false
+chapters: []

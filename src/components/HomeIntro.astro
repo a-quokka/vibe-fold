@@ -156,6 +156,11 @@
 			done = true;
 			restore?.();
 			delete root.dataset.intro;
+			// The entrance turned the slogan on by writing an inline opacity, and
+			// an inline value outranks every rule in the stylesheet. Left there it
+			// pins the slogan visible for the rest of the page's life — which is
+			// what stopped it standing down for the curation. Handed back.
+			if (title) gsap.set(title, { clearProps: 'opacity' });
 		};
 
 		const timeline = gsap.timeline({ defaults: { ease: 'power4.out' }, onComplete: finish });
