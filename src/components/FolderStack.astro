@@ -43,12 +43,24 @@ const folders = volumes.map((volume) => ({
 		{
 			folders.map(({ volume, swatch, tabSpot }, index) => {
 				const title = `${formatVolLabel(volume.number)} ${volume.title}`;
-				/** 탭에 적히는 말입니다. 볼륨 이름은 표지에 크게 적히므로, 탭은
-				 *  몇 번째인지만 말합니다. 서랍에서 탭이 하는 일은 이름을 밝히는
-				 *  것이 아니라 순서를 짚는 것입니다. */
-				const tabText = `PROJECT ${String(volume.number).padStart(2, '0')}`;
-				/** 표지에 싣는 한 줄입니다. 소개글의 첫 문단만 씁니다. */
-				const lead = volume.summary?.split(/\n\s*\n/)[0]?.trim() ?? '';
+				/** 탭에 적히는 말입니다.
+				 *
+				 *  볼륨 페이지의 탭과 같은 말을 씁니다. 서랍에서는 「PROJECT 01」,
+				 *  펼쳐진 뒤에는 다른 말이 적혀 있어서 같은 폴더가 펼쳐지는 동안
+				 *  탭의 글자가 바뀌었습니다. 펼쳐지기 전과 후가 같은 물건으로
+				 *  읽히려면 같은 말이 적혀 있어야 합니다. */
+				const tabText = formatVolLabel(volume.number);
+				/** 표지에 싣는 한 줄입니다. 소개글의 첫 문단만 씁니다.
+				 *
+				 *  문장 단위로 끊어 담습니다. 폭을 정해 두고 브라우저에 맡기면
+				 *  문장 한가운데에서 접혀서, 읽는 눈이 단어를 반으로 나눠
+				 *  받습니다. 문장이 끝나는 자리에서 줄을 바꾸면 한 줄이 한
+				 *  뜻입니다. */
+				const lead = (volume.summary?.split(/\n\s*\n/)[0] ?? '')
+					.trim()
+					.split(/(?<=[.!?。])\s+/)
+					.map((line) => line.trim())
+					.filter(Boolean);
 				/** Nothing to open yet. The tab carries no name, the cover carries no
 				 *  copy, and the only thing the folder says is that it is coming. */
 				const soon = volume.status !== 'published';
@@ -133,16 +145,26 @@ const folders = volumes.map((volume) => ({
 
 							<div class="folder__copy">
 								<p class="folder__name">{blank ? 'Coming soon' : volume.title}</p>
-								{lead && <p class="folder__blurb">{lead}</p>}
+								{lead.length > 0 && (
+									<p class="folder__blurb">
+										{lead.map((line) => (
+											<span>{line}</span>
+										))}
+									</p>
+								)}
 							</div>
 
+							{/* 오른쪽의 그림 한 장. 볼륨이 제 표지로 고른 작품입니다
+							    (`volume.yaml` 의 `cover`, 지금은 흥부와 놀부). 표지
+							    아래쪽으로 잘려도 괜찮습니다: 뒤에 선 폴더에서는 어차피
+							    윗부분만 보입니다. */}
 							<div class="folder__shot">
 								{volume.coverSrc ? (
 									<img src={volume.coverSrc} alt="" loading="lazy" draggable="false" />
 								) : (
-									/* 아직 작품이 없는 볼륨입니다. 빈자리를 그대로 두면 표지가
-									   덜 만들어진 것처럼 보이므로, 비어 있다는 사실 자체를
-									   그려 둡니다. */
+									/* 아직 작품이 없는 볼륨입니다. 빈자리를 그대로 두면
+									   표지가 덜 만들어진 것처럼 보이므로, 비어 있다는
+									   사실 자체를 그려 둡니다. */
 									<span class="folder__empty">준비 중</span>
 								)}
 							</div>
@@ -163,12 +185,18 @@ const folders = volumes.map((volume) => ({
 		   drawer belongs to the slogan, and two lots of it read as a gap nobody
 		   put there on purpose. */
 		padding: var(--space-hero-gap) var(--page-pad) 0;
-		/* The folders pushed down the stack travel past the bottom of the section.
-		   Left unclipped that counts as scrollable overflow and the page grows a
-		   screenful every time a label is hovered. `clip` keeps the section from
-		   becoming a scroller of its own; the tabs stand inside the padding box,
-		   so nothing that should be seen is cut. */
+		/* 밀려난 폴더는 서랍의 아래쪽 밖으로 나갑니다. 잘라 두지 않으면 그
+		   나간 만큼이 페이지의 스크롤 높이로 잡혀서, 탭에 손을 올릴 때마다
+		   페이지가 한 화면씩 길어집니다.
+
+		   다만 잘라 내는 선을 상자에 딱 붙여 두면, 밀려난 폴더가 움직이는
+		   것이 아니라 아래에서 잘려 사라지는 것으로 보입니다. 폴더는
+		   고정된 높이를 가지고 통째로 내려가는데 잘리는 선이 그 자리에
+		   있기 때문입니다. `overflow-clip-margin` 으로 그리는 자리만 아래로
+		   물려 주면, 잘리는 선은 눈에 보이지 않는 곳으로 내려가고 폴더는
+		   끝까지 내려가는 모습 그대로 보입니다. */
 		overflow: clip;
+		overflow-clip-margin: 30rem;
 	}
 
 	/* Covers are bottom-anchored inside a fixed-height stack, exactly as in the
@@ -437,7 +465,9 @@ const folders = volumes.map((volume) => ({
 		bottom: var(--folder-inset);
 		left: var(--folder-inset);
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+		/* 왼쪽은 글, 오른쪽은 그 볼륨을 대표하는 그림 한 장입니다. 그림 칸은
+		   제 폭으로 서고, 글이 남은 자리를 씁니다. */
+		grid-template-columns: minmax(0, 1fr) auto;
 		grid-template-rows: auto minmax(0, 1fr);
 		align-items: start;
 		column-gap: clamp(1rem, 4%, 3rem);
@@ -497,7 +527,7 @@ const folders = volumes.map((volume) => ({
 	.folder__name {
 		margin-top: 0;
 		font-size: clamp(1.6rem, 3.8vw, 3.1rem);
-		font-weight: 700;
+		font-weight: 500;
 		line-height: 1;
 		letter-spacing: -0.02em;
 	}
@@ -506,24 +536,41 @@ const folders = volumes.map((volume) => ({
 	   전체가 아니라 첫 문단만 작게 싣습니다. */
 	.folder__blurb {
 		margin-top: 0;
-		max-width: 38ch;
 		font-size: var(--text-body);
 		line-height: var(--lh-body);
 		opacity: 0.78;
 	}
 
-	/* 오른쪽의 그림 한 장. 표지 아래쪽으로 잘려도 괜찮습니다 — 뒤에 선
-	   폴더에서는 어차피 윗부분만 보입니다. */
+	/* 한 문장이 한 줄입니다. 폭을 재어 접는 대신 문장이 끝나는 자리에서
+	   바꿉니다. 문장 하나가 칸보다 길면 그때는 브라우저가 접습니다 — 그런
+	   문장은 표지에 싣기에 이미 긴 것이므로, 접히는 편이 잘리는 편보다
+	   낫습니다. */
+	.folder__blurb span {
+		display: block;
+	}
+
+	/* 오른쪽의 그림 한 장.
+	 *
+	 *  그림틀은 그림의 비율을 따릅니다. 4:3 으로 세워 두었을 때는 가로가 긴
+	 *  그림이 들어오면서 좌우가 잘렸습니다. ARTWORK.md 가 정한 썸네일 규격이
+	 *  3:2 ~ 16:10 이므로 그 가장 긴 쪽에 맞춰 둡니다. */
 	.folder__shot {
 		grid-column: 2;
+		/* 두 줄을 가로질러 표지의 맨 위에서 시작합니다. 둘째 줄에만 두었을
+		   때는 첫 줄이 남긴 높이만큼 내려와 앉아, 글의 윗선과 어긋났습니다. */
+		grid-row: 1 / -1;
+		/* 표지의 오른쪽 위 모서리에 붙입니다. 가운데에 띄워 두었을 때는 글과
+		   그림의 윗선이 어긋나 표지가 두 덩어리로 읽혔습니다. */
+		/* 높이는 표지가 남긴 만큼 끝까지 채우고, 폭만 못 박습니다. 비율을
+		   정해 두던 것을 걷었으므로 가로로 긴 그림은 위아래가 잘립니다. */
+		align-self: stretch;
+		justify-self: end;
+		width: var(--folder-shot-w);
+		min-height: 0;
 		display: grid;
 		place-items: center;
-		/* 그림틀은 그림의 비율을 따릅니다. 4:3 으로 세워 두었을 때는 가로가
-		   긴 그림이 들어오면서 좌우가 잘렸습니다 — 표지 오른쪽 끝에서 그림이
-		   뚝 끊긴 것처럼 보이던 것이 그 때문입니다. ARTWORK.md 가 정한
-		   썸네일 규격이 3:2 ~ 16:10 이므로, 그 가장 긴 쪽에 맞춰 둡니다. */
-		aspect-ratio: 16 / 10;
 		overflow: hidden;
+		border-radius: 6px;
 		background: oklch(0 0 0 / 0.07);
 	}
 
@@ -808,6 +855,15 @@ const folders = volumes.map((volume) => ({
 	 */
 	const reveal = (index: number | null) => {
 		const distance = index === null ? 0 : revealDistance(index);
+
+		/* 서랍 아래에 선 것들에게 얼마나 밀렸는지 알립니다. 지금은 페이지
+		   발치가 이 값을 보고 같이 내려갑니다. 폴더만 내려가고 발치가 제자리에
+		   있으면, 밀려난 폴더가 발치 위로 올라타 두 색면이 겹칩니다. */
+		if (distance > 0) {
+			document.documentElement.style.setProperty('--drawer-push', `${distance}px`);
+		} else {
+			document.documentElement.style.removeProperty('--drawer-push');
+		}
 
 		folders.forEach((folder, i) => {
 			const pushed = index !== null && i > index;

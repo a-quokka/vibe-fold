@@ -1,143 +1,310 @@
 ---
-/** The way in.
+/** 들어오는 문.
  *
- *  The drawer says what has been made; this says who made it and that the
- *  door is open. It stands at the foot of the page on purpose — somebody who
- *  has just looked through the volumes is the person worth asking, and
- *  somebody who has not seen them yet has nothing to join.
+ *  서랍은 무엇이 만들어졌는지 말하고, 이것은 누가 만들었으며 문이 열려
+ *  있다는 것을 말합니다.
  *
- *  Closed it is one word, because two links standing out on a page of covers
- *  are two more things competing with the work. Pointed at, the two ways in
- *  slide out from behind it, one to each side, and the word they came from
- *  stays where it was.
+ *  ── 왜 화면에 붙어 있는가
+ *
+ *  페이지 끝에 한 번 세워 두면 거기까지 내려온 사람에게만 보입니다. 작품을
+ *  보다가 마음이 동하는 순간은 페이지 중간이므로, 그때 손이 닿는 곳에 있어야
+ *  합니다. 그래서 흐름에서 자리를 빼고 화면 발치에 띄웁니다.
+ *
+ *  ── 왜 한 단어인가
+ *
+ *  닫혀 있을 때는 한 단어입니다. 표지로 가득한 페이지에 링크 셋이 처음부터
+ *  나와 서 있으면, 작품과 경쟁하는 것이 셋 더 생깁니다. 눌리거나 가리키면
+ *  세 갈래가 그 단어 뒤에서 위쪽으로 부채꼴을 그리며 펼쳐지고, 그것들이
+ *  나온 단어는 제자리에 그대로 있습니다.
  */
 ---
 
-<div class="join" data-join>
-	<a
-		class="join__way join__way--code"
-		href="https://github.com/vibe-ai-coding-club"
-		target="_blank"
-		rel="noreferrer"
-		tabindex="-1"
-	>
-		GitHub
-	</a>
+<div class="join-dock">
+	<div class="join" data-join>
+		<button class="join__open" type="button" data-join-open aria-expanded="false">참여하기</button>
 
-	<button class="join__open" type="button" data-join-open aria-expanded="false">참여하기</button>
+		{/* 세 갈래가 놓이는 자리는 반지름 `--join-r` 인 원 위의 각도에서
+		    나옵니다 — 왼쪽 55도, 꼭대기, 오른쪽 55도. 손으로 적은 좌표가
+		    아니라 원에서 나온 값이라 셋의 간격이 고릅니다. */}
+		<a
+			class="join__way"
+			style="--fx: -0.819; --fy: -0.574; --order: 2"
+			href="https://github.com/vibe-ai-coding-club"
+			target="_blank"
+			rel="noreferrer"
+			tabindex="-1"
+		>
+			GitHub
+		</a>
 
-	<a
-		class="join__way join__way--talk"
-		href="https://discord.gg/S2bHaWCUv"
-		target="_blank"
-		rel="noreferrer"
-		tabindex="-1"
-	>
-		Discord
-	</a>
+		{/* 메일 한 통으로 받습니다. 새 창으로 열지 않는 것은, 메일 프로그램이
+		    열리는 일이지 다른 웹 페이지가 열리는 일이 아니기 때문입니다. */}
+		<a
+			class="join__way"
+			style="--fx: 0; --fy: -1; --order: 1"
+			href="mailto:vibecodingclub.team@gmail.com?subject=%5B%EB%B0%94%EC%9D%B4%EB%B8%8C%20%ED%8F%B4%EB%93%9C%5D%20%EC%A0%9C%EC%95%88%ED%95%A9%EB%8B%88%EB%8B%A4"
+			tabindex="-1"
+		>
+			제안하기
+		</a>
+
+		<a
+			class="join__way"
+			style="--fx: 0.819; --fy: -0.574; --order: 2"
+			href="https://discord.gg/S2bHaWCUv"
+			target="_blank"
+			rel="noreferrer"
+			tabindex="-1"
+		>
+			Discord
+		</a>
+	</div>
 </div>
 
 <style>
+	/* 화면 발치에 늘 떠 있습니다. 부두 자체는 포인터를 받지 않습니다 —
+	   화면 폭을 가로지르는 띠라서, 받으면 단추 양옆의 빈자리가 그 아래
+	   있는 것을 다 가로막습니다. */
+	.join-dock {
+		position: fixed;
+		z-index: 30;
+		right: 0;
+		bottom: max(1.25rem, env(safe-area-inset-bottom));
+		left: 0;
+		display: flex;
+		justify-content: center;
+		pointer-events: none;
+		/* 페이지가 자리를 잡은 뒤에 올라옵니다. 슬로건과 카드가 들어오는
+		   동안 같이 끼어들면 셋이 한꺼번에 움직입니다. */
+		animation: dock-in 520ms var(--ease-out) 1100ms backwards;
+		transition-property: opacity, translate;
+		transition-duration: 240ms;
+		transition-timing-function: var(--ease-out);
+	}
+
+	@keyframes dock-in {
+		from {
+			opacity: 0;
+			translate: 0 1.5rem;
+		}
+		to {
+			opacity: 1;
+			translate: 0 0;
+		}
+	}
+
+	/* 카드가 열려 읽는 중일 때는 물러납니다. 읽는 카드에 제 바로가기가
+	   이미 있고, 그 위에 다른 단추가 겹쳐 서면 무엇을 누르라는 것인지
+	   알 수 없습니다. */
+	:global(html[data-card-open]) .join-dock {
+		opacity: 0;
+		translate: 0 1rem;
+		pointer-events: none;
+	}
+
 	.join {
+		/* 부채꼴의 반지름. 단추 한가운데에서 갈래까지의 거리입니다. */
+		--join-r: 7rem;
 		position: relative;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		pointer-events: auto;
 	}
 
+	/* 펼쳐진 셋과 단추 사이를 잇는 다리.
+	 *
+	 *  갈래들은 절대 위치라 `.join` 의 상자 밖, 단추 위쪽 허공에 떠 있습니다.
+	 *  그래서 가리켜 펼친 뒤 손을 위로 올리면 단추를 벗어나는 순간 상자를
+	 *  벗어난 것이 되어, 손이 갈래에 닿기도 전에 다 접혔습니다.
+	 *
+	 *  펼쳐진 동안에만 그 허공을 `.join` 의 몸으로 칩니다. 눈에는 보이지
+	 *  않고 포인터만 붙잡습니다. `::before` 는 마크업의 첫 자식이라 갈래들
+	 *  뒤에 깔리므로, 갈래를 누르는 손을 가로채지 않습니다.
+	 *
+	 *  닫혀 있을 때는 포인터를 받지 않습니다 — 받으면 단추 위쪽 화면이
+	 *  통째로 막힙니다. */
+	.join::before {
+		content: '';
+		position: absolute;
+		bottom: 0;
+		left: 50%;
+		width: calc(var(--join-r) * 2 + 12rem);
+		height: calc(var(--join-r) + 4rem);
+		translate: -50% 0;
+		pointer-events: none;
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.join:hover::before,
+		.join:focus-within::before,
+		.join[data-open='true']::before {
+			pointer-events: auto;
+		}
+	}
+
+	/* 페이지에서 가장 먼저 눌리기를 바라는 것입니다. 테두리만 두른 단추는
+	   있는 줄만 알리고 누르라고 말하지는 않습니다. 밝은 유리 한 조각으로
+	   세웁니다 — 색을 꽉 채우지 않고 조금 비워 두고 뒤를 흐리되, 옆의 세
+	   갈래보다 훨씬 밝아 무엇을 먼저 누르라는 것인지는 그대로 읽힙니다. */
 	.join__open {
 		position: relative;
-		/* Above the two it hides, so they pass behind it on the way out rather
-		   than across it. */
+		/* 갈래들보다 앞에 서서, 펼쳐지는 것들이 이 위를 가로지르지 않고
+		   뒤로 지나가게 합니다. */
 		z-index: 1;
-		padding: 0.6rem 1.4rem;
-		border: 1px solid oklch(1 0 0 / 0.22);
+		padding: 0.875rem 1.75rem;
+		border: 0;
 		border-radius: 999px;
-		background: var(--color-bg);
-		color: var(--color-text);
+		background: color-mix(in srgb, var(--color-text) 82%, transparent);
+		backdrop-filter: blur(20px) saturate(180%);
+		-webkit-backdrop-filter: blur(20px) saturate(180%);
+		color: var(--color-bg);
 		font: inherit;
-		font-size: var(--text-nav);
-		letter-spacing: 0.08em;
-		text-indent: 0.08em;
+		font-size: 0.875rem;
+		/* 굵게 두지 않습니다. 밝은 알약이 어두운 페이지 위에 홀로 떠 있어서
+		   굵기까지 더하지 않아도 눈에 먼저 들어옵니다. Gmarket Sans 에서는
+		   500 이하가 모두 Medium 한 벌로 그려집니다. */
+		font-weight: 500;
+		letter-spacing: 0.06em;
+		text-indent: 0.06em;
+		/* 유리는 네 겹으로 만들어집니다. 윗변에 걸린 빛, 가장자리를 도는
+		   실테, 아랫변에 앉는 옅은 그늘, 그리고 페이지에 드리우는 그림자.
+		   앞의 셋이 두께를 만들고 마지막 하나가 떠 있게 합니다. */
+		box-shadow:
+			inset 0 1px 0 oklch(1 0 0 / 0.6),
+			inset 0 0 0 0.5px oklch(1 0 0 / 0.35),
+			inset 0 -1px 0 oklch(0 0 0 / 0.08),
+			0 1px 2px rgb(0 0 0 / 0.3),
+			0 18px 40px -12px rgb(0 0 0 / 0.72);
 		cursor: pointer;
-		transition:
-			border-color 200ms var(--ease-out),
-			background-color 200ms var(--ease-out);
+		/* 우리가 그리는 눌린 모양과 겹쳐 두 번 번쩍이지 않도록 기본
+		   하이라이트를 끕니다. */
+		-webkit-tap-highlight-color: transparent;
+		transition-property: background, box-shadow, scale;
+		transition-duration: 200ms;
+		transition-timing-function: var(--ease-out);
 	}
 
-	.join:hover .join__open,
-	.join:focus-within .join__open {
-		border-color: oklch(1 0 0 / 0.5);
+	@media (hover: hover) and (pointer: fine) {
+		.join:hover .join__open {
+			background: color-mix(in srgb, var(--color-text) 94%, transparent);
+			box-shadow:
+				inset 0 1px 0 oklch(1 0 0 / 0.7),
+				inset 0 0 0 0.5px oklch(1 0 0 / 0.45),
+				inset 0 -1px 0 oklch(0 0 0 / 0.08),
+				0 1px 2px rgb(0 0 0 / 0.3),
+				0 26px 56px -14px rgb(0 0 0 / 0.88);
+			scale: 1.03;
+		}
 	}
 
-	/* Both start under the word and travel out from it. Absolute so the middle
-	   never moves: whatever happens either side, 참여하기 stays on the centre
-	   line of the page. */
+	/* 누르는 동안. 손가락으로도 그대로 걸립니다 — 눌린 모양이 없으면
+	   화면이 손을 못 본 것처럼 보입니다. */
+	.join__open:active {
+		scale: 0.96;
+		transition-duration: 140ms;
+	}
+
+	.join__open:focus-visible {
+		outline: 2px solid var(--color-text);
+		outline-offset: 3px;
+	}
+
+	/* 셋 다 단추 밑에서 시작해 거기서 펼쳐집니다. 절대 위치라 가운데는
+	   결코 움직이지 않습니다: 무엇이 펼쳐지든 참여하기는 화면 한가운데
+	   선 위에 그대로 있습니다. */
 	.join__way {
 		position: absolute;
 		top: 50%;
 		left: 50%;
 		translate: -50% -50%;
-		padding: 0.6rem 1.1rem;
-		border: 1px solid oklch(1 0 0 / 0.18);
+		padding: 0.6875rem 1.125rem;
+		border: 1px solid oklch(1 0 0 / 0.16);
 		border-radius: 999px;
-		background: var(--color-bg);
+		/* 곁다리입니다. 채워진 단추 곁에서 같이 꽉 찬 알약이면 넷 중
+		   무엇을 누르라는 것인지 알 수 없습니다. 유리로 두어 한 걸음
+		   물립니다. */
+		background: var(--glass-bg);
+		backdrop-filter: var(--glass-blur);
+		-webkit-backdrop-filter: var(--glass-blur);
+		box-shadow: 0 12px 28px -14px rgb(0 0 0 / 0.8);
 		color: var(--color-text);
 		font-size: var(--text-nav);
 		letter-spacing: 0.06em;
 		text-indent: 0.06em;
+		text-decoration: none;
 		white-space: nowrap;
 		opacity: 0;
 		pointer-events: none;
-		transition:
-			translate 320ms var(--ease-back, cubic-bezier(0.34, 1.3, 0.64, 1)),
-			opacity 220ms var(--ease-out),
-			border-color 200ms var(--ease-out);
+		-webkit-tap-highlight-color: transparent;
+		transition-property: translate, opacity, border-color, background, scale;
+		transition-duration: 320ms, 220ms, 200ms, 200ms, 140ms;
+		transition-timing-function:
+			var(--ease-back, cubic-bezier(0.34, 1.3, 0.64, 1)),
+			var(--ease-out),
+			var(--ease-out),
+			var(--ease-out),
+			var(--ease-out);
 	}
 
-	.join__way:hover {
-		border-color: oklch(1 0 0 / 0.55);
+	@media (hover: hover) and (pointer: fine) {
+		.join__way:hover {
+			border-color: oklch(1 0 0 / 0.55);
+		}
 	}
 
+	.join__way:active {
+		border-color: oklch(1 0 0 / 0.62);
+		background: oklch(1 0 0 / 0.08);
+		scale: 0.96;
+	}
+
+	/* 펼쳐진 자리. 원 위의 각도에 반지름을 곱한 값입니다. 꼭대기 하나가
+	   먼저 서고 바깥 둘이 반 박자 뒤에 벌어집니다 — 셋이 동시에 튀어나오면
+	   한 덩어리가 튀어나오는 것으로 보입니다. */
 	.join:hover .join__way,
 	.join:focus-within .join__way,
 	.join[data-open='true'] .join__way {
 		opacity: 1;
 		pointer-events: auto;
+		translate:
+			calc(-50% + var(--fx) * var(--join-r))
+			calc(-50% + var(--fy) * var(--join-r));
+		transition-delay: calc((var(--order) - 1) * 45ms);
 	}
 
-	.join:hover .join__way--code,
-	.join:focus-within .join__way--code,
-	.join[data-open='true'] .join__way--code {
-		translate: calc(-50% - 6.25rem) -50%;
-	}
-
-	.join:hover .join__way--talk,
-	.join:focus-within .join__way--talk,
-	.join[data-open='true'] .join__way--talk {
-		translate: calc(-50% + 6.25rem) -50%;
-	}
-
-	/* No pointer to hover with: both ways stand out from the start, because a
-	   phone would otherwise show one word that appears to do nothing. */
+	/* 가리킬 포인터가 없는 화면에서는 셋이 처음부터 펼쳐져 있습니다.
+	   그러지 않으면 아무 일도 하지 않는 단어 하나만 보입니다. */
 	@media (hover: none), (pointer: coarse) {
+		.join {
+			--join-r: 6rem;
+		}
+
 		.join__way {
 			opacity: 1;
 			pointer-events: auto;
-		}
-
-		.join__way--code {
-			translate: calc(-50% - 6.25rem) -50%;
-		}
-
-		.join__way--talk {
-			translate: calc(-50% + 6.25rem) -50%;
+			translate:
+				calc(-50% + var(--fx) * var(--join-r))
+				calc(-50% + var(--fy) * var(--join-r));
 		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
 		.join__way {
 			transition-duration: 140ms;
+		}
+
+		.join-dock {
+			animation-name: dock-fade;
+		}
+
+		@keyframes dock-fade {
+			from {
+				opacity: 0;
+			}
+			to {
+				opacity: 1;
+			}
 		}
 	}
 </style>
@@ -151,7 +318,7 @@
 
 		/** Hover is enough for a mouse and reaches nobody else. Pressing the word
 		 *  opens it too, which is what a finger and a keyboard both do — and
-		 *  while it is open the two ways can be tabbed to, which is why they are
+		 *  while it is open the ways can be tabbed to, which is why they are
 		 *  out of the tab order until then. */
 		const set = (on: boolean) => {
 			if (on) join.dataset.open = 'true';

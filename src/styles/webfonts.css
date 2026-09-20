@@ -1,0 +1,48 @@
+/* 이 사이트가 쓰는 글꼴 두 가지.
+ *
+ * 본문은 Gmarket Sans, 히어로 문구 한 줄만 HS여름물빛체입니다. 한 화면에
+ * 손글씨가 여러 군데 나오면 글씨체가 아니라 장식으로 읽히므로, 손글씨는
+ * 슬로건 한 곳에만 걸립니다.
+ */
+
+/* Gmarket Sans — 본문 글꼴.
+ *
+ * 무게는 세 벌입니다. Light 를 가는 자리(300)에, Medium 을 보통
+ * 자리(400·500)에, Bold 를 굵은 자리(600·700)에 세웁니다.
+ */
+@font-face {
+	font-family: 'Gmarket Sans';
+	src: url('/fonts/gmarket/GmarketSansLight.otf') format('opentype');
+	font-weight: 300;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Gmarket Sans';
+	src: url('/fonts/gmarket/GmarketSansMedium.otf') format('opentype');
+	font-weight: 400 500;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Gmarket Sans';
+	src: url('/fonts/gmarket/GmarketSansBold.otf') format('opentype');
+	font-weight: 600 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+/* HS여름물빛체 — 히어로 문구 한 줄에만 쓰는 손글씨 계열 글꼴.
+ *
+ * 한글 전체를 담은 1.2MB 짜리 TTF 입니다. 쓰는 자리가 문장 하나뿐이라
+ * 배포 전에는 그 문장에 쓰인 글자만 추려 내는 편이 낫습니다.
+ */
+@font-face {
+	font-family: 'HS Summer Water';
+	src: url('/fonts/hs/HSSummerWater.ttf') format('truetype');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}

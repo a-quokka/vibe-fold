@@ -42,6 +42,9 @@ export interface ChapterMeta {
 	creator: string;
 	description: string;
 	thumbnail: string;
+	/** 카드에 손이 올라갔을 때 도는 짧은 영상입니다. 작품 폴더를 기준으로
+	 *  적습니다. 적지 않으면 그 작품은 그림 한 장으로만 보입니다. */
+	preview?: string;
 	/** Optional 1200x630 share card, relative to the chapter folder. */
 	shareImage?: string;
 	/** Optional favicon for this chapter's page, relative to the chapter folder. */
@@ -60,6 +63,7 @@ export interface Chapter extends ChapterMeta {
 	dirName: string;
 	iframeSrc: string;
 	thumbSrc: string;
+	previewSrc?: string;
 	shareImageSrc?: string;
 	faviconSrc?: string;
 }
@@ -133,6 +137,7 @@ function loadChapters(volumeDir: string, volId: string, chapterDirs: string[]): 
 			dirName,
 			iframeSrc: asset('index.html'),
 			thumbSrc: asset(meta.thumbnail),
+			previewSrc: meta.preview ? asset(meta.preview) : undefined,
 			shareImageSrc: meta.shareImage ? asset(meta.shareImage) : undefined,
 			faviconSrc: meta.favicon ? asset(meta.favicon) : undefined,
 		};
@@ -210,8 +215,17 @@ export function volumeHref(volId: string): string {
 	return `/vol/${volId}`;
 }
 
+/** 볼륨을 가리키는 말.
+ *
+ *  화면에 나가는 모든 자리에서 같은 말을 씁니다 — 서랍의 탭, 볼륨 페이지의
+ *  머리글, 작품 카드의 뒷면이 전부 이 함수를 지납니다. 자리마다 「Vol.1」과
+ *  「PROJECT 01」을 섞어 쓰던 것을 한곳으로 모은 이유는, 같은 볼륨이 화면을
+ *  옮길 때마다 다른 이름으로 불리면 다른 물건으로 읽히기 때문입니다.
+ *
+ *  번호는 두 자리로 맞춰 붙입니다. 한 자리로 두면 아홉 번째와 열 번째
+ *  사이에서 글자 폭이 달라져 탭이 들쭉날쭉해집니다. */
 export function formatVolLabel(number: number): string {
-	return `Vol.${number}`;
+	return `PROJECT ${String(number).padStart(2, '0')}`;
 }
 
 export function formatVolumeTitle(volume: Pick<VolumeMeta, 'number' | 'title' | 'example'>): string {

@@ -1,4 +1,5 @@
 @import './pretendard.css';
+@import './webfonts.css';
 
 /* Registered so it can be interpolated: an unregistered custom property jumps
  * between values instead of sweeping through them, and this one is swept as the
@@ -30,6 +31,15 @@
 	--glass-glow: 0 0 40px -6px rgb(255 255 255 / 0.1);
 	--glass-drop: 0 18px 48px -12px rgb(0 0 0 / 0.55);
 	--glass-shadow: var(--glass-rim), var(--glass-sheen), var(--glass-glow), var(--glass-drop);
+	/* 카드용 유리는 같은 재료를 묽게 탄 것입니다.
+	 *
+	 * 위의 유리는 페이지 위에 한 장 떠 있는 판을 위한 값입니다. 뒤에 있는
+	 * 것이 페이지 하나뿐이라 28px 로 흐려도 흐려질 것이 없습니다. 작품
+	 * 카드는 다릅니다 — 다섯 장이 서로 겹쳐 서 있어서, 각 카드가 제 뒤에
+	 * 선 카드를 흐립니다. 같은 값을 쓰면 흐림이 겹겹이 쌓여 줄 전체가
+	 * 안개가 되고, 페이지가 열리면서 카드가 서로를 지나갈 때 그것이 가장
+	 * 크게 보입니다. 채도도 같은 이유로 낮춥니다. */
+	--card-blur: blur(10px) saturate(140%);
 
 	/* The editing-tool box drawn by dragging across an empty part of the page.
 	 * The same pink as a text selection: both are the page being dragged across,
@@ -39,14 +49,18 @@
 	--color-card: #ffffff;
 	--color-card-text: #111111;
 	--color-card-muted: rgba(0, 0, 0, 0.55);
+	/* 페이지 발치의 분홍. 글자를 끌어 선택할 때와 화면을 훑을 때 나오는 그
+	 * 핫핑크(`--color-select`)와 같은 색입니다. 여기서 색을 새로 뽑으면
+	 * 화면에 분홍이 두 가지가 됩니다. */
+	--color-foot: var(--color-select);
 	--color-soon-bg: #f1f1f1;
 	--color-soon-text: rgba(0, 0, 0, 0.55);
-	/* Latin runs in Helvetica, Hangul in Pretendard. Helvetica carries no Hangul
-	 * glyphs, so Korean falls through to Pretendard on its own — the order is the
-	 * whole mechanism. Arial stands in for Helvetica on Windows (same metrics);
-	 * it carries no Hangul either, so the fallthrough still holds. */
-	--font-sans: "Helvetica Neue", Helvetica, Arial, "Pretendard", -apple-system,
-		BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+	/* 본문 글꼴. 한글과 라틴 문자가 한 벌 안에 들어 있어서 글꼴을 섞지 않아도
+	 * 되고, 섞지 않으므로 두 문자가 같은 선 위에 놓입니다. 뒤에 세워 둔
+	 * 것들은 Gmarket Sans 가 도착하기 전이나 글자가 없을 때를 위한
+	 * 것입니다. */
+	--font-sans: 'Gmarket Sans', 'Pretendard', -apple-system, BlinkMacSystemFont,
+		'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 	--page-pad: clamp(1.25rem, 5.2vw, 6.25rem);
 	/* The widest the page is allowed to get. Past this the stack stops growing
 	 * and the screen grows around it instead. */
@@ -55,17 +69,24 @@
 	 * 내려앉는 높이입니다. 걸음이 폭보다 작은 만큼이 겹치는 넓이이고, 다섯
 	 * 장을 늘어놓은 줄이 화면보다 넓어야 양 끝이 잘립니다 — 잘린 줄이 화면
 	 * 너머에도 이어진다고 말합니다. */
-	--rail-w: clamp(13rem, 34vw, 32rem);
-	--rail-step: clamp(8.25rem, 22vw, 20.5rem);
-	--rail-drop: clamp(0.625rem, 1.4vw, 1.25rem);
+	/* 카드 한 장의 폭. 화면이 좁아져도 카드는 웬만큼 버팁니다 — 화면 폭에
+	 * 그대로 비례시키면 창을 조금만 줄여도 카드가 우표만 해지고, 그림도
+	 * 제목도 같이 줄어듭니다. 고정분을 크게 두고 화면에 따르는 몫을 줄여
+	 * 두면, 좁아지는 것은 화면이지 카드가 아닙니다. */
+	--rail-w: clamp(13rem, 18vw + 13rem, 32rem);
+	/* 다음 장까지의 걸음. 폭에서 바로 뽑습니다 — 따로 적어 두면 카드 폭을
+	 * 고칠 때마다 겹치는 넓이가 달라집니다. 0.65 는 제 폭의 35% 가 앞장에
+	 * 덮인다는 뜻이고, 다섯 장을 늘어놓은 줄은 카드 폭의 3.6 배가 되어
+	 * 어느 화면에서나 양 끝이 잘립니다. */
+	--rail-step: calc(var(--rail-w) * 0.65);
 	/* 기운 카드가 제 상자 밖으로 넘치는 분량입니다. 회전은 자리를 차지하지
 	 * 않으므로 상자는 똑바로 선 카드만큼만 높은데, 눈에 보이는 것은 기운
 	 * 카드의 네 귀퉁이입니다. 위아래로 이만큼씩 당겨 두어야 상자의 위아래
 	 * 선과 보이는 선이 맞고, 그래야 위아래 간격을 눈에 보이는 대로 잴 수
 	 * 있습니다. 카드 폭에 비례합니다 — 넓은 카드일수록 같은 각도에서 더 많이
 	 * 넘칩니다. */
-	--rail-over-top: calc(var(--rail-w) * 0.135);
-	--rail-over-bot: calc(var(--rail-w) * 0.2215);
+	--rail-over-top: calc(var(--rail-w) * 0.036);
+	--rail-over-bot: calc(var(--rail-w) * 0.471);
 	--rail-pad-y: 0px;
 	--card-radius: 12px;
 	--card-pad: 8px;
@@ -73,8 +94,8 @@
 	/* 카드 발치. 제목이 바닥에 붙어 보이지 않도록 위쪽 여백보다 넉넉히
 	 * 둡니다 — 글자는 제 상자보다 위에 떠 보이므로, 같은 값을 주면 아래가
 	 * 좁아 보입니다. */
-	--card-foot: clamp(1rem, 1.6vw, 1.5rem);
-	--card-title: clamp(0.8125rem, 1vw, 0.875rem);
+	--card-foot: clamp(0.625rem, 1vw, 0.875rem);
+	--card-title: clamp(0.875rem, 1.16vw, 1.125rem);
 	--space-hero-y: clamp(2.5rem, 4.2vw, 5rem);
 	--space-archive-y: clamp(2.5rem, 4.2vw, 5rem);
 	--hero-row-h: clamp(20rem, 22vw, 26.25rem);
@@ -110,7 +131,9 @@
 	   22px on a phone up to 60px on a wide desktop. */
 	--text-slogan: clamp(1.375rem, 3.8vw, 3.75rem);
 	/* Measured in em so the line breaks at the same word count at every size. */
-	--measure-slogan: 17.9em;
+	/* 한글 두 줄이 못 박아 둔 자리에서만 접히도록 넉넉히 둡니다. 좁게 두면
+	 * 둘째 줄이 한 번 더 접혀 세 줄이 됩니다. */
+	--measure-slogan: 20em;
 	/* Leaves the top of the folder stack inside the first screen — but tied to
 	 * the tagline's own size, not to the viewport alone. A flat 62svh on a tall
 	 * narrow window left the sentence stranded in a field of black; eleven lines
@@ -142,9 +165,12 @@
 	/* Everything printed on a cover sits inside this margin — one value for all
 	 * four sides, so the copy reads as centred on the sheet rather than pushed
 	 * against one edge. */
-	--folder-inset: 1.875rem;
+	--folder-inset: 48px;
 	/* 표지의 오른쪽 여백. 그림이 이 선을 넘지 않습니다. */
-	--folder-edge: 16px;
+	--folder-edge: 48px;
+	/* 표지에 걸리는 그림의 폭. 높이는 표지가 남긴 만큼 채우고 폭만 이
+	 * 값으로 고정합니다. */
+	--folder-shot-w: clamp(16rem, 32vw, 40rem);
 	--folder-radius: 12px;
 	--folder-overlap: 4px;
 	--folder-shadow: 0 -1px 8px rgb(0 0 0 / 0.15);
