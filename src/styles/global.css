@@ -51,6 +51,30 @@
 	/* The widest the page is allowed to get. Past this the stack stops growing
 	 * and the screen grows around it instead. */
 	--w-max: 106.25rem;
+	/* 작품 큐레이션 줄. 카드 한 장의 폭과, 다음 장까지의 걸음과, 한 장씩
+	 * 내려앉는 높이입니다. 걸음이 폭보다 작은 만큼이 겹치는 넓이이고, 다섯
+	 * 장을 늘어놓은 줄이 화면보다 넓어야 양 끝이 잘립니다 — 잘린 줄이 화면
+	 * 너머에도 이어진다고 말합니다. */
+	--rail-w: clamp(13rem, 34vw, 32rem);
+	--rail-step: clamp(8.25rem, 22vw, 20.5rem);
+	--rail-drop: clamp(0.625rem, 1.4vw, 1.25rem);
+	/* 기운 카드가 제 상자 밖으로 넘치는 분량입니다. 회전은 자리를 차지하지
+	 * 않으므로 상자는 똑바로 선 카드만큼만 높은데, 눈에 보이는 것은 기운
+	 * 카드의 네 귀퉁이입니다. 위아래로 이만큼씩 당겨 두어야 상자의 위아래
+	 * 선과 보이는 선이 맞고, 그래야 위아래 간격을 눈에 보이는 대로 잴 수
+	 * 있습니다. 카드 폭에 비례합니다 — 넓은 카드일수록 같은 각도에서 더 많이
+	 * 넘칩니다. */
+	--rail-over-top: calc(var(--rail-w) * 0.135);
+	--rail-over-bot: calc(var(--rail-w) * 0.2215);
+	--rail-pad-y: 0px;
+	--card-radius: 12px;
+	--card-pad: 8px;
+	--card-gap: clamp(0.625rem, 1vw, 1rem);
+	/* 카드 발치. 제목이 바닥에 붙어 보이지 않도록 위쪽 여백보다 넉넉히
+	 * 둡니다 — 글자는 제 상자보다 위에 떠 보이므로, 같은 값을 주면 아래가
+	 * 좁아 보입니다. */
+	--card-foot: clamp(1rem, 1.6vw, 1.5rem);
+	--card-title: clamp(0.8125rem, 1vw, 0.875rem);
 	--space-hero-y: clamp(2.5rem, 4.2vw, 5rem);
 	--space-archive-y: clamp(2.5rem, 4.2vw, 5rem);
 	--hero-row-h: clamp(20rem, 22vw, 26.25rem);
@@ -119,6 +143,8 @@
 	 * four sides, so the copy reads as centred on the sheet rather than pushed
 	 * against one edge. */
 	--folder-inset: 1.875rem;
+	/* 표지의 오른쪽 여백. 그림이 이 선을 넘지 않습니다. */
+	--folder-edge: 16px;
 	--folder-radius: 12px;
 	--folder-overlap: 4px;
 	--folder-shadow: 0 -1px 8px rgb(0 0 0 / 0.15);

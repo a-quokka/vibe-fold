@@ -1,0 +1,759 @@
+---
+/** 작품 큐레이션.
+ *
+ *  페이지를 여는 자리에 작품을 카드로 늘어놓습니다. 서랍은 닫힌 표지의
+ *  줄이라서 안에 무엇이 들었는지 한마디도 하지 않으므로, 들어온 사람이
+ *  폴더를 열어 봐야 작품이 있다는 사실을 알게 됩니다. 이 페이지가 해야 할
+ *  일은 보자마자 만들고 싶어지게 만드는 것이니 순서가 거꾸로입니다.
+ *
+ *  ── 왜 한 줄로 기울여 겹치는가
+ *
+ *  카드를 똑바로 세워 나란히 놓으면 표가 됩니다. 몇 장인지 세어지고, 다섯
+ *  장은 다섯 장으로 끝납니다. 같은 방향으로 기울여 서로 겹쳐 놓으면 눈이
+ *  셀 수 없고, 양 끝이 화면 밖으로 잘려 나가면 화면 너머에도 이어진다고
+ *  읽습니다. 실제로 이 아래에 서랍이 있으니 거짓말도 아닙니다.
+ *
+ *  ── 카드는 두 면을 가진 물건입니다
+ *
+ *  앞면은 그림과 제목, 뒷면은 그 작품의 이야기입니다. 눌리면 그 카드가
+ *  화면 한가운데로 옮겨 오면서 뒤로 돌아섭니다. 새 화면을 띄우지 않는
+ *  이유는, 누른 것과 읽는 것이 같은 물건이라는 사실이 끊기지 않아야
+ *  하기 때문입니다. 뒤집히는 것은 진짜 회전입니다 — 앞뒤 두 장을 겹쳐
+ *  두고 `rotateY` 로 돌립니다.
+ */
+import type { Volume } from '../lib/content';
+import { chapterHref } from '../lib/content';
+import { swatchAt } from '../lib/palette';
+
+interface Props {
+	volumes: Volume[];
+}
+
+const { volumes } = Astro.props;
+
+const works = volumes.flatMap((volume) =>
+	volume.chapters.map((chapter) => ({
+		chapter,
+		volume,
+		/** 볼륨이 아직 나오지 않았다면 열어 볼 자리가 없습니다. 그때는 카드를
+		 *  걸어 두기만 하고 어디로도 보내지 않습니다. */
+		href: volume.status === 'published' ? chapterHref(volume.volId, chapter.chId) : null,
+	})),
+);
+
+/** 카드 바탕이 도는 차례입니다.
+ *
+ *  전부 흰 종이면 줄이 한 장처럼 붙어 버리고, 전부 색이면 아래의 서랍과
+ *  싸웁니다. 흰 종이와 색지와 검은 판을 돌려 쓰면 겹친 자리마다 경계가
+ *  서고, 색은 서랍에서 쓰는 팔레트에서 그대로 가져오므로 두 영역이 한
+ *  집안으로 읽힙니다. */
+type Face = 'paper' | 'tint' | 'ink';
+const FACES: Face[] = ['paper', 'tint', 'ink', 'paper', 'tint'];
+
+/** 줄 한가운데에 세울 작품.
+ *
+ *  볼륨이 제 표지로 고른 작품입니다. 그 볼륨을 가장 잘 말해 주는 한 편이라
+ *  서랍 표지에 걸리는 것이고, 그렇다면 줄에서도 가운데여야 합니다. 가운데는
+ *  겹쳐진 카드 가운데 유일하게 온전히 보이는 자리이기 때문입니다. */
+const middle = Math.floor((works.length - 1) / 2);
+const featured = works.findIndex(
+	(work) => work.volume.status === 'published' && work.volume.cover === work.chapter.id,
+);
+
+/** 색은 자리가 아니라 작품을 따라갑니다. 가운데로 옮겼다고 카드 색이 바뀌면
+ *  같은 작품이 어제와 다른 물건으로 보입니다. 그래서 바탕은 옮기기 전의
+ *  번호에서 뽑아 들고 다닙니다. */
+const dressed = works.map((work, i) => ({
+	...work,
+	face: FACES[i % FACES.length],
+	tint: swatchAt(i).bg,
+}));
+
+if (featured > -1 && featured !== middle) {
+	dressed.splice(middle, 0, ...dressed.splice(featured, 1));
+}
+
+const cards = dressed.map((work, i) => ({
+	...work,
+	/** 기운 각도. 한 방향으로 가지런히 기울되 한 장씩 조금씩 다릅니다 —
+	 *  각도가 완전히 같으면 인쇄한 무늬가 되고, 제각각이면 흐트러진
+	 *  더미가 됩니다. */
+	lean: -18 + ((i * 7) % 5) * 1.1,
+	step: i,
+	/** 쌓이는 차례. 가운데가 맨 위에 있고 거기서 좌우로 한 장씩 밑으로
+	 *  들어갑니다 — 가운데에서 양쪽으로 펼쳐진 부채가 되는 것은 이
+	 *  차례입니다. */
+	z: works.length - Math.abs(i - middle),
+	/** 이야기. 빈 줄로 나뉜 문단을 그대로 살립니다. */
+	story: (work.chapter.description ?? '')
+		.split(/\n\s*\n/)
+		.map((part) => part.trim())
+		.filter(Boolean),
+}));
+---
+
+<div class="rail" data-rail style={`--rail-count: ${cards.length};`}>
+	{/* 카드가 돌아설 때 뒤에 깔리는 판. 페이지를 끄는 것이 아니라 읽는 것
+	    하나만 남기는 일입니다. 누르면 닫힙니다. */}
+	<div class="scrim" data-scrim hidden></div>
+
+	{
+		cards.map(({ chapter, volume, href, face, tint, lean, step, z, story }) => (
+			/* 자리와 물건을 나눕니다. 자리(`.slot`)는 돌지도 기울지도 않으므로,
+			   카드를 한가운데로 옮길 거리를 잴 때 쓸 수 있는 유일한 기준입니다.
+			   기운 카드에서 직접 재면 기운 만큼 비뚤어진 값이 나옵니다. */
+			<div
+				class="slot"
+				style={`--step: ${step}; --z: ${z}; --rail-count: ${cards.length};`}
+			>
+				<div
+					class="card"
+					data-card
+					data-face={face}
+					style={`--lean: ${lean.toFixed(2)}deg; ${face === 'tint' ? `--face-bg: ${tint};` : ''}`}
+				>
+					<button class="card__front" type="button" data-open-card aria-expanded="false">
+						<span class="card__shot">
+							<img src={chapter.thumbSrc} alt="" loading="lazy" draggable="false" />
+						</span>
+						<span class="card__name">{chapter.title}</span>
+						<span class="visually-hidden">이야기 보기</span>
+					</button>
+
+					<div class="card__back" data-back tabindex="-1" inert>
+						<button class="card__close" type="button" data-close-card>
+							<span class="visually-hidden">닫기</span>
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									d="M7 7l10 10M17 7 7 17"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.6"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</button>
+
+						<div class="card__story">
+							<p class="card__vol">{`Vol.${volume.number} ${volume.title}`}</p>
+							<h3 class="card__heading">{chapter.title}</h3>
+							{story.map((part) => (
+								<p class="card__text">{part}</p>
+							))}
+							{chapter.creator && <p class="card__by">{chapter.creator}</p>}
+						</div>
+
+						{href && (
+							<a class="card__cta" href={href}>바로가기</a>
+						)}
+					</div>
+				</div>
+			</div>
+		))
+	}
+</div>
+
+<style>
+	/* 줄은 화면 폭보다 넓습니다. 양 끝 카드가 화면 밖으로 잘리는 것이 이
+	   구성의 전부이므로 가로로는 잘라 두고, 세로는 열어 둡니다 — 가리킨
+	   카드가 위로 떠오르는데 그 자리가 아직 화면이기 때문입니다. `clip` 은
+	   `hidden` 과 달리 스크롤 상자를 만들지 않으므로 페이지에 가로 스크롤이
+	   생기지 않습니다. */
+	/* 열린 카드가 커지는 배율. 넓은 화면에서는 10% 입니다 — 한가운데로 옮겨
+	   오는 것만으로 이미 눈이 따라오므로, 크기는 거들기만 하면 됩니다.
+	   좁은 화면에서는 이야기가 들어갈 자리가 나오지 않습니다. 카드 자체가
+	   작아서 10% 를 더해도 뒷면에 한 줄밖에 실리지 않았습니다. 화면 폭이
+	   허락하는 만큼 더 키웁니다. */
+	.rail {
+		--open-scale: 1.1;
+		display: flex;
+		justify-content: center;
+		align-items: flex-start;
+		overflow-x: clip;
+		overflow-y: visible;
+		padding-block: var(--rail-pad-y);
+	}
+
+	/* 카드가 놓이는 자리. 겹침과 차례만 맡고 스스로는 돌지 않습니다. */
+	.slot {
+		position: relative;
+		z-index: var(--z);
+		flex: none;
+		width: var(--rail-w);
+		/* 겹치는 만큼 앞 자리 쪽으로 당깁니다. 첫 자리는 당길 앞이 없습니다. */
+		margin-left: calc(var(--rail-step) - var(--rail-w));
+		/* 오른쪽으로 갈수록 한 걸음씩 내려앉습니다. */
+		margin-top: calc(var(--step) * var(--rail-drop));
+		/* 뒤집힘이 깊이를 갖게 하는 것은 이 하나입니다. 없으면 카드가 도는
+		   것이 아니라 가로로 납작해졌다 펴집니다. */
+		perspective: 1600px;
+	}
+
+	.slot:first-of-type {
+		margin-left: 0;
+	}
+
+	.card {
+		position: relative;
+		display: block;
+		border-radius: var(--card-radius);
+		rotate: var(--lean);
+		/* 앞뒷면이 한 물건의 두 면으로 놓이려면 3차원이 살아 있어야 합니다. */
+		transform-style: preserve-3d;
+		transition-property: translate, rotate, scale, transform;
+		transition-duration: 260ms;
+		transition-timing-function: var(--ease-out);
+	}
+
+	/* ── 두 면 ────────────────────────────────────────────────────────── */
+
+	.card__front,
+	.card__back {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		padding: var(--card-pad) var(--card-pad) var(--card-foot);
+		/* 바깥 반경은 안쪽 반경에 여백을 더한 값입니다. 두 곡선의 중심이
+		   맞아야 카드가 한 장의 물건으로 보입니다. */
+		border-radius: var(--card-radius);
+		/* 돌아선 면은 보이지 않습니다. 이것이 없으면 뒷면의 글씨가 앞면에
+		   거울처럼 비칩니다. */
+		backface-visibility: hidden;
+		-webkit-backface-visibility: hidden;
+		backdrop-filter: var(--glass-blur);
+		-webkit-backdrop-filter: var(--glass-blur);
+		text-align: left;
+		box-shadow:
+			var(--glass-rim),
+			var(--glass-sheen),
+			0 30px 64px -28px rgb(0 0 0 / 0.75);
+	}
+
+	.card__front,
+	.card__back button,
+	.card__cta {
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	.card__front {
+		position: relative;
+		z-index: 1;
+		align-items: center;
+		gap: var(--card-gap);
+		border: 0;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	/* 뒷면은 앞면 위에 포개 두고 반 바퀴 돌려 둡니다. 돌아서기 전에는
+	   등을 보이고 있으므로 눈에 띄지 않습니다. */
+	.card__back {
+		position: absolute;
+		inset: 0;
+		/* 열릴 때 초점이 여기로 옵니다. 읽을 곳을 가리키는 것이지 누를 곳을
+		   가리키는 것이 아니므로 테는 그리지 않습니다. */
+		outline: none;
+		justify-content: flex-start;
+		gap: var(--card-gap);
+		transform: rotateY(180deg);
+		overflow: hidden;
+	}
+
+	/* 떠오른 카드가 드리우는 더 깊은 그림자. 앞면 뒤에 깔아 두고 투명도만
+	   오갑니다 — 그림자를 전환에 끼워 두면 매 프레임 카드를 다시 칠해야
+	   하는데, 카드마다 뒷배경을 흐리고 있어 그 값이 곱절로 듭니다. */
+	.card__front::after {
+		content: '';
+		position: absolute;
+		z-index: -1;
+		inset: 0;
+		border-radius: inherit;
+		box-shadow:
+			var(--glass-glow),
+			0 48px 88px -30px rgb(0 0 0 / 0.9);
+		opacity: 0;
+		transition: opacity 260ms var(--ease-out);
+		pointer-events: none;
+	}
+
+	/* ── 바탕 ────────────────────────────────────────────────────────── */
+
+	/* 바탕 세 가지는 그대로입니다 — 흰 종이, 색지, 검은 판. 달라진 것은
+	   재질뿐입니다. 색을 다 채우는 대신 조금 비워 두고 뒤를 흐립니다.
+	   겹쳐 선 카드에서 이 차이가 드러납니다: 뒤 카드의 모서리가 앞 카드의
+	   몸을 통해 비칩니다.
+
+	   그림에 두르는 실선도 바탕을 따라갑니다 — 밝은 바탕에는 검은 실선,
+	   어두운 바탕에는 흰 실선입니다. 회색이 섞인 실선은 바탕색을 받아
+	   그림 가장자리에 때처럼 앉습니다. */
+	.card[data-face='paper'] {
+		--face-fill: color-mix(in srgb, var(--color-card) 74%, transparent);
+		--face-solid: var(--color-card);
+		--face-ink: var(--color-card-text);
+		--face-line: oklch(0 0 0 / 0.1);
+		--face-soft: oklch(0 0 0 / 0.55);
+		--face-well: oklch(0 0 0 / 0.06);
+		--face-well-strong: oklch(0 0 0 / 0.12);
+	}
+
+	.card[data-face='tint'] {
+		--face-fill: color-mix(in srgb, var(--face-bg) 74%, transparent);
+		--face-solid: var(--face-bg);
+		--face-ink: var(--color-card-text);
+		--face-line: oklch(0 0 0 / 0.1);
+		--face-soft: oklch(0 0 0 / 0.6);
+		--face-well: oklch(0 0 0 / 0.08);
+		--face-well-strong: oklch(0 0 0 / 0.14);
+	}
+
+	.card[data-face='ink'] {
+		--face-fill: color-mix(in srgb, #1b1b1b 66%, transparent);
+		--face-solid: #1b1b1b;
+		--face-ink: var(--color-text);
+		--face-line: oklch(1 0 0 / 0.1);
+		--face-soft: oklch(1 0 0 / 0.62);
+		--face-well: oklch(1 0 0 / 0.1);
+		--face-well-strong: oklch(1 0 0 / 0.18);
+	}
+
+	.card__front,
+	.card__back {
+		background: var(--face-fill);
+		color: var(--face-ink);
+	}
+
+	/* 뒷면은 읽는 면입니다. 글이 앉을 자리라 바탕을 꽉 채웁니다 — 반쯤
+	   비친 바탕 위의 본문은 뒤엣것과 겹쳐 읽기 어렵습니다. */
+	.card__back {
+		background: var(--face-solid);
+	}
+
+	/* ── 앞면 ────────────────────────────────────────────────────────── */
+
+	.card__shot {
+		display: block;
+		width: 100%;
+		overflow: hidden;
+		border-radius: calc(var(--card-radius) - var(--card-pad));
+		background: var(--face-well);
+	}
+
+	.card__shot img {
+		display: block;
+		width: 100%;
+		aspect-ratio: 16 / 10;
+		object-fit: cover;
+		object-position: center 32%;
+		outline: 1px solid var(--face-line);
+		outline-offset: -1px;
+	}
+
+	.card__name {
+		font-size: var(--card-title);
+		font-weight: 700;
+		line-height: 1.12;
+		letter-spacing: -0.02em;
+		text-align: center;
+	}
+
+	/* ── 뒷면 ────────────────────────────────────────────────────────── */
+
+	/* 닫기는 아이콘 하나입니다. 동그란 판에 앉혀 두면 뒷면에서 가장 먼저
+	   눈에 띄는 것이 단추가 되는데, 뒷면은 읽는 면이므로 가장 먼저 눈에
+	   띄어야 하는 것은 제목입니다. */
+	.card__close {
+		position: absolute;
+		top: var(--card-gap);
+		right: var(--card-gap);
+		display: grid;
+		place-items: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--face-soft);
+		cursor: pointer;
+		transition-property: color, scale;
+		transition-duration: 160ms;
+		transition-timing-function: var(--ease-out);
+	}
+
+	.card__close svg {
+		width: 100%;
+		height: 100%;
+	}
+
+	/* 손가락 화면에서는 손끝이 닿는 순간 가짜 호버가 한 번 들어옵니다.
+	   그대로 두면 누른 뒤에도 눌린 모양이 남습니다. */
+	@media (hover: hover) and (pointer: fine) {
+		.card__close:hover {
+			color: var(--face-ink);
+			scale: 1.08;
+		}
+	}
+
+	/* 누르는 동안. 손가락에서도 그대로 걸립니다. */
+	.card__close:active {
+		color: var(--face-ink);
+		scale: 0.9;
+	}
+
+	.card__close:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 3px;
+		border-radius: 4px;
+	}
+
+	.card__story {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		padding: calc(var(--card-gap) * 1.5) var(--card-gap) 0;
+		/* 닫기 단추가 서 있는 오른쪽 위는 비워 둡니다. */
+		padding-right: calc(var(--card-gap) + 2.25rem);
+	}
+
+	.card__vol {
+		margin: 0 0 0.5rem;
+		font-size: 0.625rem;
+		font-weight: 600;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--face-soft);
+	}
+
+	.card__heading {
+		margin: 0 0 0.875rem;
+		font-size: clamp(1.125rem, 1.7vw, 1.5rem);
+		font-weight: 700;
+		line-height: 1.15;
+		letter-spacing: -0.02em;
+	}
+
+	.card__text {
+		margin: 0 0 0.75rem;
+		font-size: clamp(0.75rem, 0.95vw, 0.875rem);
+		line-height: 1.7;
+		color: var(--face-soft);
+	}
+
+	.card__by {
+		margin: 0;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		color: var(--face-soft);
+	}
+
+	/* 뒷면에서 유일하게 누르는 곳입니다. 발치를 가로로 다 쓰게 두어, 글을
+	   다 읽고 내려온 눈이 더듬지 않고 바로 닿게 합니다. */
+	.card__cta {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		margin: var(--card-gap) var(--card-gap) 0;
+		padding: 0.6875rem 1rem;
+		/* 알약이 아니라 각진 단추입니다. 카드 자체가 12px 으로 각져 있으므로
+		   같은 값을 씁니다 — 한 카드 안에서 모서리가 두 가지면 단추가 카드에
+		   얹힌 다른 물건으로 보입니다. */
+		border-radius: 12px;
+		background: var(--face-well);
+		box-shadow: inset 0 0 0 0.5px var(--face-line);
+		color: inherit;
+		font-size: 0.75rem;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-decoration: none;
+		transition-property: background, scale;
+		transition-duration: 160ms;
+		transition-timing-function: var(--ease-out);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.card__cta:hover {
+			background: var(--face-well-strong);
+		}
+	}
+
+	.card__cta:active {
+		background: var(--face-well-strong);
+		scale: 0.96;
+	}
+
+	.card__cta:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 2px;
+	}
+
+	/* ── 가리켰을 때 ─────────────────────────────────────────────────── */
+
+	/* 가리킨 카드는 줄에서 한 장 뽑혀 나옵니다. 기울기를 절반쯤 펴면서
+	   떠오르므로, 겹쳐 있던 것이 앞으로 나왔다는 사실이 각도로도 읽힙니다.
+	   손가락으로 여는 화면에서는 걸지 않습니다 — 손끝이 닿는 순간 가짜
+	   호버가 한 번 들어와서, 누른 카드가 떠오른 채로 남습니다. */
+	@media (hover: hover) and (pointer: fine) {
+		.slot:has(.card:not([data-open]):hover) {
+			z-index: calc(var(--rail-count) + 1);
+		}
+
+		.card:not([data-open]):hover {
+			translate: 0 -1.25rem;
+			rotate: calc(var(--lean) * 0.35);
+			scale: 1.03;
+		}
+
+		.card:not([data-open]):hover .card__front::after {
+			opacity: 1;
+		}
+	}
+
+	.card__front:focus-visible {
+		outline: 2px solid var(--color-text);
+		outline-offset: 4px;
+	}
+
+	/* 카드를 누르는 동안. 떠 있던 것이 살짝 눌려 들어갑니다. 뒤집히기
+	   시작하면 이 규칙은 더 이상 걸리지 않습니다. */
+	.card:not([data-open]):has(.card__front:active) {
+		scale: 0.99;
+		transition-duration: 120ms;
+	}
+
+	.card:has(.card__front:focus-visible):not([data-open]) {
+		translate: 0 -1.25rem;
+		rotate: calc(var(--lean) * 0.35);
+		scale: 1.03;
+	}
+
+	/* ── 열렸을 때 ───────────────────────────────────────────────────── */
+
+	/* 누른 카드가 화면 한가운데로 옮겨 오면서 한 바퀴의 절반을 돌아 뒤로
+	   돌아섭니다. 옮길 거리(`--fx`·`--fy`)는 누른 순간에 재서 적어 둡니다 —
+	   카드가 줄 어디에 서 있느냐에 따라 매번 다르기 때문입니다.
+	 *
+	 *  따로 떼어 둔 `rotate`·`translate`·`scale` 은 0 으로 돌려놓고 움직임을
+	 *  `transform` 하나에 모읍니다. 기울기와 회전과 확대가 한 줄에 있어야
+	 *  서로를 덮어쓰지 않고 한 동작으로 섞입니다. */
+	.card[data-open] {
+		translate: 0;
+		rotate: 0deg;
+		scale: 1;
+		transform: translate(var(--fx, 0px), var(--fy, 0px)) rotateY(180deg) scale(var(--open-scale));
+		transition-duration: 420ms;
+		/* 화면을 가로질러 옮겨 가는 움직임입니다. 들어오고 나가는 곡선이
+		   아니라 지나가는 곡선을 씁니다. */
+		transition-timing-function: var(--ease-in-out);
+	}
+
+	.slot:has(.card[data-open]) {
+		z-index: 50;
+	}
+
+	.card[data-open] .card__front {
+		pointer-events: none;
+	}
+
+	.scrim {
+		position: fixed;
+		z-index: 40;
+		inset: 0;
+		border: 0;
+		padding: 0;
+		background: oklch(0 0 0 / 0.66);
+		opacity: 0;
+		transition: opacity 240ms var(--ease-out);
+	}
+
+	.scrim[hidden] {
+		display: none;
+	}
+
+	.scrim[data-on] {
+		opacity: 1;
+	}
+
+	/* ── 들어올 때 ───────────────────────────────────────────────────── */
+
+	/* 한 장씩 늦게 내려앉습니다. 한 번만 도는 연출이라 전환이 아니라
+	   키프레임으로 둡니다.
+	 *
+	 *  채우기는 `backwards` 입니다. `both` 로 두면 연출이 끝난 뒤에도 마지막
+	 *  칸의 값을 계속 붙들고, 애니메이션이 붙든 값은 어떤 규칙보다도 세서
+	 *  호버와 뒤집힘이 통째로 먹힙니다. */
+	.card {
+		animation: deal 560ms var(--ease-out) calc(var(--step) * 70ms) backwards;
+	}
+
+	@keyframes deal {
+		from {
+			opacity: 0;
+			translate: 0 2.5rem;
+		}
+		to {
+			opacity: 1;
+			translate: 0 0;
+		}
+	}
+
+	/* ── 좁은 화면 ───────────────────────────────────────────────────── */
+
+	/* 배경 흐림을 걷고 색만 남깁니다. 흐림은 스크롤하는 동안 매 프레임 다시
+	   계산되는데, 카드가 다섯 장이면 그 값을 작은 기기가 먼저 치릅니다. */
+	@media (max-width: 48rem) {
+		.rail {
+			--open-scale: 1.45;
+		}
+
+		/* 좁은 화면의 뒷면은 글이 차지할 자리를 더 내줍니다. */
+		.card__story {
+			padding-top: var(--card-gap);
+		}
+
+		.card__heading {
+			margin-bottom: 0.5rem;
+		}
+
+		.card__text {
+			margin-bottom: 0.5rem;
+		}
+
+		.card__front,
+		.card__back {
+			backdrop-filter: none;
+			-webkit-backdrop-filter: none;
+			background: var(--face-solid);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.card {
+			animation: none;
+		}
+
+		.card:not([data-open]):hover {
+			translate: 0;
+			rotate: var(--lean);
+			scale: 1.01;
+		}
+
+		/* 도는 것도 옮겨 가는 것도 걷습니다. 남는 것은 제자리에서 면이
+		   바뀌는 것뿐입니다 — 그래도 앞뒤가 뒤바뀌었다는 사실은 읽힙니다. */
+		.card[data-open] {
+			transform: rotateY(180deg);
+			transition-duration: 200ms;
+		}
+	}
+</style>
+
+<script>
+	const rail = document.querySelector<HTMLElement>('[data-rail]');
+	const scrim = document.querySelector<HTMLElement>('[data-scrim]');
+
+	if (rail && scrim) {
+		const cards = Array.from(rail.querySelectorAll<HTMLElement>('[data-card]'));
+
+		/** 열려 있는 카드와, 닫았을 때 초점을 돌려줄 자리. */
+		let open: HTMLElement | null = null;
+
+		/** 카드를 화면 한가운데로 옮길 거리.
+		 *
+		 *  카드가 아니라 카드가 놓인 자리(`.slot`)에서 잽니다. 카드는 기울어
+		 *  있고 곧 확대까지 되므로 제 상자가 이미 비뚤어져 있습니다. 자리는
+		 *  아무 변형도 걸려 있지 않아 똑바른 값을 돌려줍니다. */
+		const centreOffset = (card: HTMLElement) => {
+			const slot = card.parentElement;
+			if (!slot) return { x: 0, y: 0 };
+			const box = slot.getBoundingClientRect();
+			return {
+				x: Math.round(window.innerWidth / 2 - (box.left + box.width / 2)),
+				y: Math.round(window.innerHeight / 2 - (box.top + box.height / 2)),
+			};
+		};
+
+		/** 열려 있는 동안 페이지는 움직이지 않습니다. 옮길 거리를 누른 순간의
+		 *  화면을 기준으로 쟀으므로, 그 아래에서 페이지가 흐르면 카드가
+		 *  한가운데에서 미끄러집니다. */
+		const lockPage = (locked: boolean) => {
+			document.documentElement.style.overflow = locked ? 'hidden' : '';
+		};
+
+		const close = () => {
+			if (!open) return;
+
+			const card = open;
+			open = null;
+
+			delete card.dataset.open;
+			card.style.removeProperty('--fx');
+			card.style.removeProperty('--fy');
+
+			const front = card.querySelector<HTMLElement>('[data-open-card]');
+			const back = card.querySelector<HTMLElement>('[data-back]');
+			front?.setAttribute('aria-expanded', 'false');
+			back?.setAttribute('inert', '');
+
+			delete scrim.dataset.on;
+			// 판이 다 사라진 뒤에 자리를 비웁니다. 곧바로 치우면 사라지는
+			// 모습 없이 툭 꺼집니다.
+			window.setTimeout(() => {
+				if (!open) scrim.hidden = true;
+			}, 260);
+
+			lockPage(false);
+			front?.focus();
+		};
+
+		const openCard = (card: HTMLElement) => {
+			if (open === card) return;
+			if (open) close();
+
+			const { x, y } = centreOffset(card);
+			card.style.setProperty('--fx', `${x}px`);
+			card.style.setProperty('--fy', `${y}px`);
+			card.dataset.open = '';
+			open = card;
+
+			const front = card.querySelector<HTMLElement>('[data-open-card]');
+			const back = card.querySelector<HTMLElement>('[data-back]');
+			front?.setAttribute('aria-expanded', 'true');
+			back?.removeAttribute('inert');
+
+			scrim.hidden = false;
+			// 한 프레임 뒤에 켭니다. 같은 프레임에 자리를 만들고 불을 켜면
+			// 브라우저가 처음부터 켜져 있던 것으로 보고 번지지 않습니다.
+			requestAnimationFrame(() => {
+				scrim.dataset.on = '';
+			});
+
+			lockPage(true);
+			back?.focus({ preventScroll: true });
+		};
+
+		cards.forEach((card) => {
+			card.querySelector<HTMLElement>('[data-open-card]')?.addEventListener('click', () => {
+				openCard(card);
+			});
+
+			card.querySelector<HTMLElement>('[data-close-card]')?.addEventListener('click', close);
+		});
+
+		scrim.addEventListener('click', close);
+
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape' && open) close();
+		});
+
+		/** 창 크기가 바뀌면 한가운데도 옮겨 갑니다. 닫아 버리면 읽던 것이
+		 *  사라지므로, 거리를 다시 재서 따라가게 합니다. 재는 값은 자리에서
+		 *  나오고 자리는 변형이 걸려 있지 않으므로, 카드가 돌아서 있는
+		 *  중이어도 바른 값이 나옵니다. */
+		window.addEventListener('resize', () => {
+			if (!open) return;
+			const { x, y } = centreOffset(open);
+			open.style.setProperty('--fx', `${x}px`);
+			open.style.setProperty('--fy', `${y}px`);
+		});
+	}
+</script>

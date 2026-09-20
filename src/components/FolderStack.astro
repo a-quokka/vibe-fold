@@ -134,7 +134,6 @@ const folders = volumes.map((volume) => ({
 							<div class="folder__copy">
 								<p class="folder__name">{blank ? 'Coming soon' : volume.title}</p>
 								{lead && <p class="folder__blurb">{lead}</p>}
-								{!soon && <span class="folder__go">VIEW PROJECT ↗</span>}
 							</div>
 
 							<div class="folder__shot">
@@ -430,9 +429,11 @@ const folders = volumes.map((volume) => ({
 	.folder__face {
 		position: absolute;
 		top: var(--folder-inset);
-		/* 그림이 표지의 오른쪽 끝까지 닿도록 여백을 두지 않습니다. 글은 제
-		   여백을 따로 지킵니다. */
-		right: 0;
+		/* 그림이 표지 바깥으로 넘어가지 않도록 오른쪽에도 여백을 둡니다.
+		   0 으로 두었을 때는 그림의 오른쪽 변이 표지의 변과 같은 자리에
+		   놓였는데, 표지가 기울어 서 있어서 그림이 표지 밖으로 삐져나온
+		   것처럼 보였습니다. */
+		right: var(--folder-edge);
 		bottom: var(--folder-inset);
 		left: var(--folder-inset);
 		display: grid;
@@ -442,8 +443,19 @@ const folders = volumes.map((volume) => ({
 		column-gap: clamp(1rem, 4%, 3rem);
 	}
 
+	/* 날짜는 표지 발치 한가운데에 눕습니다. 제목에 딸린 머리글이 아니라
+	   이 표지가 언제 것인지 적어 둔 각인이라, 글과 그림이 다 끝난 자리에
+	   놓입니다. 격자에서 빼내 표지 밑변에 직접 붙입니다 — 격자 안에 두면
+	   왼쪽 칸의 폭에 맞춰 가운데가 잡혀서, 표지의 가운데와 어긋납니다. */
 	.folder__when {
-		grid-column: 1 / -1;
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		/* 표지의 글 영역은 왼쪽 여백(30px)과 오른쪽 여백(16px)이 다릅니다.
+		   그 안에서 가운데를 잡으면 폴더의 가운데에서 7px 밀립니다. 두
+		   여백의 차이만큼 왼쪽으로 물려 폴더 자체의 가운데에 세웁니다. */
+		left: calc(var(--folder-edge) - var(--folder-inset));
+		text-align: center;
 	}
 
 	/* 간격을 하나로 두지 않고 층을 나눕니다. 날짜는 제목에 딸린 것이라
@@ -456,10 +468,6 @@ const folders = volumes.map((volume) => ({
 		flex-direction: column;
 		align-items: flex-start;
 		min-width: 0;
-	}
-
-	.folder__when {
-		margin-bottom: 12px;
 	}
 
 	.folder__name {
@@ -478,7 +486,7 @@ const folders = volumes.map((volume) => ({
 	}
 
 	.folder__when {
-		margin-top: 0;
+		margin: 0;
 		font-size: var(--text-meta);
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
@@ -504,21 +512,17 @@ const folders = volumes.map((volume) => ({
 		opacity: 0.78;
 	}
 
-	.folder__go {
-		padding-bottom: 0.25rem;
-		border-bottom: 1px solid currentColor;
-		font-size: 0.6875rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
 	/* 오른쪽의 그림 한 장. 표지 아래쪽으로 잘려도 괜찮습니다 — 뒤에 선
 	   폴더에서는 어차피 윗부분만 보입니다. */
 	.folder__shot {
 		grid-column: 2;
 		display: grid;
 		place-items: center;
-		aspect-ratio: 4 / 3;
+		/* 그림틀은 그림의 비율을 따릅니다. 4:3 으로 세워 두었을 때는 가로가
+		   긴 그림이 들어오면서 좌우가 잘렸습니다 — 표지 오른쪽 끝에서 그림이
+		   뚝 끊긴 것처럼 보이던 것이 그 때문입니다. ARTWORK.md 가 정한
+		   썸네일 규격이 3:2 ~ 16:10 이므로, 그 가장 긴 쪽에 맞춰 둡니다. */
+		aspect-ratio: 16 / 10;
 		overflow: hidden;
 		background: oklch(0 0 0 / 0.07);
 	}
