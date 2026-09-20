@@ -126,8 +126,12 @@ const folders = volumes.map((volume) => ({
 						    대표하는 그림 한 장. 소개글을 전부 싣던 예전 표지는 읽을거리가
 						    되어서, 정작 무슨 볼륨인지가 눈에 들어오지 않았습니다. */}
 						<div class="folder__face">
+							{/* 날짜는 표지 폭 전체를 쓰는 제 줄에 둡니다. 글 안에 넣어 두면
+							    오른쪽 그림이 날짜 높이만큼 위로 올라가서, 그림 윗선과 제목
+							    윗선이 어긋납니다. */}
+							<p class="folder__when">{formatVolumeDate(volume.date)}</p>
+
 							<div class="folder__copy">
-								<p class="folder__when">{formatVolumeDate(volume.date)}</p>
 								<p class="folder__name">{blank ? 'Coming soon' : volume.title}</p>
 								{lead && <p class="folder__blurb">{lead}</p>}
 								{!soon && <span class="folder__go">VIEW PROJECT ↗</span>}
@@ -337,8 +341,10 @@ const folders = volumes.map((volume) => ({
 	}
 
 	.tab {
-		/* 이 폴더에 주어진 자리에서 시작합니다. 값이 없으면 왼쪽 끝입니다. */
-		margin-inline-start: var(--tab-spot, 0%);
+		/* 이 폴더에 주어진 자리에서 시작하되, 줄 끝을 넘지 않는 선까지만
+		   갑니다. 백분율만 쓰면 화면이 좁아질 때 탭의 오른쪽 어깨가 표지
+		   밖으로 나가 잘립니다. */
+		margin-inline-start: min(var(--tab-spot, 0%), calc(100% - 19rem));
 		/* The tab shape itself is the hover target — its painted area only, so
 		   the gaps between the shoulder curves stay inert. */
 		pointer-events: auto;
@@ -424,13 +430,20 @@ const folders = volumes.map((volume) => ({
 	.folder__face {
 		position: absolute;
 		top: var(--folder-inset);
-		right: var(--folder-inset);
+		/* 그림이 표지의 오른쪽 끝까지 닿도록 여백을 두지 않습니다. 글은 제
+		   여백을 따로 지킵니다. */
+		right: 0;
 		bottom: var(--folder-inset);
 		left: var(--folder-inset);
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+		grid-template-rows: auto minmax(0, 1fr);
 		align-items: start;
-		gap: clamp(1rem, 4%, 3rem);
+		column-gap: clamp(1rem, 4%, 3rem);
+	}
+
+	.folder__when {
+		grid-column: 1 / -1;
 	}
 
 	/* 간격을 하나로 두지 않고 층을 나눕니다. 날짜는 제목에 딸린 것이라
@@ -438,6 +451,7 @@ const folders = volumes.map((volume) => ({
 	   전부 같은 간격이면 네 줄이 한 덩어리로 읽혀서 무엇이 무엇에 딸린
 	   것인지 알 수 없습니다. */
 	.folder__copy {
+		grid-column: 1;
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
@@ -445,7 +459,7 @@ const folders = volumes.map((volume) => ({
 	}
 
 	.folder__when {
-		margin-bottom: 0.45rem;
+		margin-bottom: 12px;
 	}
 
 	.folder__name {
@@ -491,16 +505,17 @@ const folders = volumes.map((volume) => ({
 	}
 
 	.folder__go {
-		padding-bottom: 0.3rem;
+		padding-bottom: 0.25rem;
 		border-bottom: 1px solid currentColor;
-		font-size: var(--text-meta);
-		letter-spacing: 0.12em;
+		font-size: 0.6875rem;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
 	}
 
 	/* 오른쪽의 그림 한 장. 표지 아래쪽으로 잘려도 괜찮습니다 — 뒤에 선
 	   폴더에서는 어차피 윗부분만 보입니다. */
 	.folder__shot {
+		grid-column: 2;
 		display: grid;
 		place-items: center;
 		aspect-ratio: 4 / 3;

@@ -7,18 +7,14 @@
  *  것이므로 순서가 거꾸로입니다.
  *
  *  그래서 작품을 처음부터 꺼내 둡니다. 슬로건이 놓인 자리에 그림들을 흩어
- *  놓고, 그 사이에 그림에서 뽑은 색을 정사각형으로 함께 둡니다. 색은
- *  빌드할 때 썸네일을 직접 읽어서 고른 값이라, 작품을 바꾸면 색도 따라
- *  바뀝니다.
+ *  놓습니다.
  *
  *  그림 하나를 가리키면 그 그림이 앞으로 나오면서 어느 볼륨의 무슨
  *  작품인지 말합니다. 흩어 놓기만 하면 예쁜 무늬로 끝나고, 무엇을 보고
  *  있는지 알 수 없으면 만들고 싶어지지도 않습니다.
  */
-import { join } from 'node:path';
 import type { Volume } from '../lib/content';
 import { chapterHref } from '../lib/content';
-import { pickColours } from '../lib/thumb-colour';
 
 interface Props {
 	volumes: Volume[];
@@ -69,38 +65,6 @@ function scatterAt(i: number, count: number) {
 	};
 }
 
-/** 썸네일은 빌드할 때 `public/chapters/…` 로 복사되어 있습니다. 화면에
- *  쓰는 주소 앞에 그 폴더를 붙이면 디스크의 파일이 됩니다. */
-const palettes = await Promise.all(
-	works.map(({ chapter }) => pickColours(join(process.cwd(), 'public', chapter.thumbSrc), 2)),
-);
-
-const colours = palettes.flat();
-
-/** 색 정사각형은 그림 사이의 빈자리를 메웁니다. 그림보다 훨씬 작아서
- *  슬로건 옆에 놓여도 글자를 가리지 않습니다. */
-const CHIP_SPOTS = [
-	{ x: 30, y: 7, s: 14 },
-	{ x: 88, y: 33, s: 11 },
-	{ x: 5, y: 41, s: 18 },
-	{ x: 63, y: 18, s: 10 },
-	{ x: 24, y: 87, s: 13 },
-	{ x: 79, y: 85, s: 16 },
-	{ x: 46, y: 93, s: 9 },
-	{ x: 93, y: 12, s: 12 },
-	{ x: 14, y: 22, s: 10 },
-	{ x: 71, y: 52, s: 8 },
-];
-
-const chips = colours.length
-	? CHIP_SPOTS.map((spot, i) => ({
-			...spot,
-			colour: colours[i % colours.length],
-			secs: 21 + ((i * 5) % 9),
-			delay: -(i * 3.3),
-		}))
-	: [];
-
 const placed = works.map((work, i) => ({ ...work, ...scatterAt(i, works.length) }));
 ---
 
@@ -124,15 +88,6 @@ const placed = works.map((work, i) => ({ ...work, ...scatterAt(i, works.length) 
 			);
 		})
 	}
-	{
-		chips.map(({ x, y, s, colour, secs, delay }) => (
-			<span
-				class="scatter__chip"
-				aria-hidden="true"
-				style={`--x:${x}%; --y:${y}%; --s:${s}px; --c:${colour}; --secs:${secs}s; --delay:${delay}s;`}
-			/>
-		))
-	}
 </div>
 
 <style>
@@ -145,8 +100,7 @@ const placed = works.map((work, i) => ({ ...work, ...scatterAt(i, works.length) 
 		pointer-events: none;
 	}
 
-	.scatter__work,
-	.scatter__chip {
+	.scatter__work {
 		position: absolute;
 		left: var(--x);
 		top: var(--y);
@@ -240,13 +194,6 @@ const placed = works.map((work, i) => ({ ...work, ...scatterAt(i, works.length) 
 		overflow: hidden;
 	}
 
-	/* 1:1 정사각형. 그림에서 뽑은 색을 그대로 칠합니다. */
-	.scatter__chip {
-		width: var(--s);
-		height: var(--s);
-		background: var(--c);
-	}
-
 	@keyframes drift {
 		0%,
 		100% {
@@ -266,15 +213,10 @@ const placed = works.map((work, i) => ({ ...work, ...scatterAt(i, works.length) 
 		.scatter__work {
 			opacity: 0.5;
 		}
-
-		.scatter__chip {
-			opacity: 0.7;
-		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.scatter__work,
-		.scatter__chip {
+		.scatter__work {
 			animation: none;
 		}
 
