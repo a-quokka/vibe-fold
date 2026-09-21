@@ -370,8 +370,12 @@ const folders = volumes.map((volume) => ({
 	.tab {
 		/* 이 폴더에 주어진 자리에서 시작하되, 줄 끝을 넘지 않는 선까지만
 		   갑니다. 백분율만 쓰면 화면이 좁아질 때 탭의 오른쪽 어깨가 표지
-		   밖으로 나가 잘립니다. */
-		margin-inline-start: min(var(--tab-spot, 0%), calc(100% - 19rem));
+		   밖으로 나가 잘립니다.
+		   0 아래로는 내려가지 않습니다. 줄이 탭보다 좁아지면 `100% - 19rem`
+		   이 음수가 되어 탭을 줄의 시작 왼쪽으로 밀어내는데, 줄이 가로를
+		   자르고 있어서 앞머리가 통째로 먹혔습니다 — 화면이 좁을 때 탭에
+		   숫자만 남아 보이던 것이 이것입니다. */
+		margin-inline-start: max(0px, min(var(--tab-spot, 0%), calc(100% - 19rem)));
 		/* The tab shape itself is the hover target — its painted area only, so
 		   the gaps between the shoulder curves stay inert. */
 		pointer-events: auto;
@@ -392,9 +396,11 @@ const folders = volumes.map((volume) => ({
 		--tab-surface:
 			linear-gradient(var(--sheen-angle), var(--folder-sheen-stops)) 0 0 / 100% 800px no-repeat,
 			var(--folder-color);
-		/* Never shrink: a squeezed tab truncates its title. The row clips
-		   instead, as in the reference. */
-		flex: none;
+		/* 줄이 탭보다 넓을 때는 줄지 않습니다. 좁을 때만 줄어들어 이름 끝에
+		   말줄임을 답니다 — 잘려서 앞머리가 사라지는 것보다, 끝이 줄어드는
+		   쪽이 무슨 탭인지 읽힙니다. */
+		flex: 0 1 auto;
+		max-width: 100%;
 		display: flex;
 		align-items: stretch;
 		height: var(--tab-height);
@@ -733,8 +739,12 @@ const folders = volumes.map((volume) => ({
 	   just the volume name. The tokens themselves are stepped down in
 	   global.css, where the rest of the folder's measurements live. */
 	@media (max-width: 720px) {
+		/* 줄을 표지 폭 끝까지 넓힙니다. 예전에는 34% 에서 잘랐는데, 그
+		   자리는 표지가 제 이름과 펼침 표시를 이고 있던 시절의 몫이고
+		   지금은 비어 있습니다. 좁은 화면에서 탭 이름이 말줄임으로 끝나던
+		   것이 이 때문입니다. */
 		.folder__tabs {
-			right: 34%;
+			right: var(--folder-inset);
 		}
 
 		.tab__label {
@@ -743,14 +753,6 @@ const folders = volumes.map((volume) => ({
 
 		.folder__vol {
 			display: none;
-		}
-	}
-
-	/* Small phones. The cover's own label is two syllables and a chevron here,
-	   so the tab row can take back most of the lip. */
-	@media (max-width: 400px) {
-		.folder__tabs {
-			right: calc(var(--folder-inset) + 4.25rem);
 		}
 	}
 
