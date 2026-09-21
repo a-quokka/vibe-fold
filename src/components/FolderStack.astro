@@ -431,17 +431,29 @@ const folders = volumes.map((volume) => ({
 		width: calc(var(--tab-height) * var(--tab-aspect));
 		height: 100%;
 		background: var(--tab-surface);
-		mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0H24C40 0 34 44 62 44H0Z' fill='%23000'/%3E%3C/svg%3E")
-			center / 100% 100% no-repeat;
-		-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0H24C40 0 34 44 62 44H0Z' fill='%23000'/%3E%3C/svg%3E")
-			center / 100% 100% no-repeat;
+		/* 가리는 모양은 낱낱의 속성으로 적습니다. 한 줄로 묶어 적는
+		   `mask: … center / 100% 100% no-repeat` 는 Safari 가 통째로
+		   버리는 경우가 있고, 그러면 어깨가 잘리지 않아 탭이 네모로
+		   보입니다. 접두사가 붙은 쪽을 먼저 적어 오래된 Safari 부터
+		   받도록 합니다. */
+		-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0H24C40 0 34 44 62 44H0Z' fill='%23000'/%3E%3C/svg%3E");
+		-webkit-mask-repeat: no-repeat;
+		-webkit-mask-position: center;
+		-webkit-mask-size: 100% 100%;
+		mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0H24C40 0 34 44 62 44H0Z' fill='%23000'/%3E%3C/svg%3E");
+		mask-repeat: no-repeat;
+		mask-position: center;
+		mask-size: 100% 100%;
 	}
 
 	/* One shape, mirrored, so both shoulders share a single path. The -1px tucks
 	   each shoulder under the label block: meeting it exactly leaves a
 	   sub-pixel seam, and the folder behind shows through it as a hairline. */
 	.tab__shoulder--start {
-		scale: -1 1;
+		/* 개별 속성(`scale`) 대신 `transform` 으로 적습니다 — 오래된
+		   Safari 는 개별 변형 속성을 모르고, 그러면 어깨 하나가 뒤집히지
+		   않아 탭의 한쪽만 곡선이 됩니다. */
+		transform: scaleX(-1);
 		margin-right: -1px;
 	}
 
