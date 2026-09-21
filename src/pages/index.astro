@@ -189,13 +189,19 @@ const jsonLd = {
 		display: flex;
 		justify-content: center;
 		padding: 0 var(--page-pad);
-		margin-bottom: clamp(1.5rem, 3vw, 2.5rem);
+		margin-bottom: clamp(1rem, 1.5vw, 1.25rem);
 		text-align: center;
 	}
 
 	.archive__title {
 		margin: 0;
-		font-size: clamp(1.375rem, 2.6vw, 2rem);
+		/* 순백입니다. 페이지의 글자색(`--color-text`)은 따뜻한 쪽으로 기운
+		   흰색(#f7f4ef)인데, 이 제목은 서랍의 이름이라 한 단 밝게 세웁니다. */
+		color: #ffffff;
+		/* 넓은 화면에서 40px 까지 커집니다. 히어로의 슬로건(1280px 에서 49px)
+		   보다는 작게 둡니다 — 페이지에서 가장 큰 글자는 무엇을 만드는 곳인지
+		   말하는 첫 문장이어야 하고, 이것은 그 아래에 놓인 서랍의 이름입니다. */
+		font-size: clamp(1.375rem, 3.2vw, 2.5rem);
 		font-weight: 500;
 		line-height: 1.2;
 		letter-spacing: -0.01em;
@@ -282,7 +288,7 @@ const jsonLd = {
 		padding-top: calc(90px + var(--rail-over-top));
 		padding-bottom: max(
 			0px,
-			calc(60px + var(--rail-over-bot) - var(--space-hero-gap) - var(--tab-height))
+			calc(24px + var(--rail-over-bot) - var(--space-hero-gap) - var(--tab-height))
 		);
 	}
 
@@ -305,6 +311,17 @@ const jsonLd = {
 
 		.archive {
 			margin-bottom: 0.5rem;
+		}
+
+		/* 슬로건 위로 한 뼘 더. 머리글 바로 밑에서 시작하면 첫 줄이 머리글에
+		   얹힌 것처럼 보입니다. 넓은 화면에서는 슬로건이 화면 가운데에 서서
+		   위아래로 저절로 여백을 갖지만, 좁은 화면에서는 세 줄이 위쪽에
+		   붙어 서기 때문에 그 여백을 직접 줘야 합니다.
+		   `.home` 을 앞에 적는 이유는 발치와 같습니다 — 슬로건의 본 규칙이
+		   이 아래에 있고 거기서 `padding` 을 한 번에 적으므로, 같은 무게로는
+		   위쪽 값이 집니다. */
+		.home .slogan {
+			padding-top: calc(var(--h-header) + 2rem);
 		}
 
 		/* 서랍과 발치 사이. 넓은 화면의 100px 은 분홍 색면과 서랍 사이로

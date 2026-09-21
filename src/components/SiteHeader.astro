@@ -87,9 +87,12 @@ function isCurrent(item: { href?: string; section?: RegExp }): boolean {
 		   sheet. */
 		z-index: 100;
 		min-height: var(--h-header);
-		/* Out of the way on the way down, back on the way up — the page gets the
-		   whole screen while you are reading it, and the way out is one flick
-		   away wherever you are. */
+		/* 맨 위에 붙어 서 있다가, 페이지가 스크롤되면 위로 빠집니다.
+		 *
+		 *  머리글은 페이지의 머리에 얹힌 것이므로, 머리를 떠나면 함께
+		 *  물러나는 것이 제자리입니다. 돌아오는 것은 다시 맨 위에 닿았을
+		 *  때입니다 — 스크롤 방향을 따라 오가게 두면, 아래로 읽다가 손을
+		 *  조금만 되돌려도 바가 끼어들어 읽던 자리를 가립니다. */
 		translate: 0 0;
 		transition-property: translate, background-color, box-shadow;
 		transition-duration: 300ms;
@@ -105,7 +108,8 @@ function isCurrent(item: { href?: string; section?: RegExp }): boolean {
 			transition-property: background-color, box-shadow;
 		}
 
-		/* Nothing slides; the bar simply stays. */
+		/* 물러나지 않고 그대로 머뭅니다. 움직임을 줄이는 환경에서 화면 위의
+		   것이 소리 없이 오가면, 그것은 절제가 아니라 사라지는 기능입니다. */
 		.site-header[data-hidden='true'] {
 			translate: 0 0;
 		}
@@ -258,27 +262,24 @@ function isCurrent(item: { href?: string; section?: RegExp }): boolean {
 </style>
 
 <script>
-	// Two things the scroll decides: whether the bar is standing on anything,
-	// which gives it its material, and whether it is in the way, which sends it
-	// off the top. Reduced motion keeps it put — the CSS holds it — but still
-	// lets the material come and go.
+	// 스크롤이 두 가지를 정합니다. 바가 무엇인가를 이고 있는지(어떤 재료로
+	// 보일지), 그리고 페이지가 머리를 떠났는지(물러날지)입니다.
+	//
+	// 방향은 보지 않습니다. 오직 맨 위에 있는지만 봅니다 — 방향을 따라
+	// 오가게 두면 아래로 읽다가 손을 조금 되돌릴 때마다 바가 끼어듭니다.
+	// 움직임을 줄이는 환경에서는 물러나지 않습니다(CSS 가 잡아 둡니다).
 	const header = document.querySelector<HTMLElement>('[data-site-header]');
-	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 	if (header) {
-		let last = window.scrollY;
 		let ticking = false;
 
 		const update = () => {
 			const y = window.scrollY;
 
 			header.dataset.lifted = String(y > 8);
-
-			// Ignore jitter, and never hide while near the top of the page.
-			if (!reduced.matches && Math.abs(y - last) > 8) {
-				header.dataset.hidden = String(y > last && y > header.offsetHeight);
-				last = y;
-			}
+			// 제 높이만큼 밀려 들어갔을 때 물러납니다. 몇 픽셀에 반응하면
+			// 손가락이 스치기만 해도 바가 튑니다.
+			header.dataset.hidden = String(y > header.offsetHeight);
 
 			ticking = false;
 		};

@@ -146,8 +146,12 @@ const { color, ink, label, flipId, title, summary, works } = Astro.props;
 				// bookmark, the back button an hour later. The record is taken off
 				// the shelf as it is read, so this only has to outlast fetching one
 				// page; four seconds did not, on a connection slower than a
-				// loopback.
-				if (Date.now() - parsed.at < 30000) record = parsed;
+				// loopback, and 30 초로도 모자란 경우를 만났습니다 — 기록을 놓치면
+				// 폴더가 건네받은 자리가 아니라 화면 아래에서 새로 올라오므로,
+				// 페이지가 바뀌는 순간 폴더가 딴 자리로 뛰는 것으로 보입니다.
+				// 기록은 읽는 즉시 선반에서 내리므로 넉넉히 두어도 잃을 것이
+				// 없습니다.
+				if (Date.now() - parsed.at < 120000) record = parsed;
 			}
 		} catch {
 			// Private browsing and the like: the folder opens at its own size.

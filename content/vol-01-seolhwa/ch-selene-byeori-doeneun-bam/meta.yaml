@@ -7,8 +7,5 @@ description: |
 
   고른 답은 별가루가 되어 그릇에 쌓이고, 마지막에 한 점으로 모인다. 밤하늘에는 그 사람의 이름이 새겨진 별 하나가 남는다.
 thumbnail: thumb.jpg
-# 카드에 손이 올라가면 도는 짧은 영상입니다. 폴더에 있는 넷 가운데 가장
-# 가벼운 것을 골랐습니다.
-preview: assets/night-asks.mp4
 links:
   github: https://github.com/a-quokka
