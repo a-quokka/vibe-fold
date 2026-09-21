@@ -25,6 +25,19 @@
 	 *  link, so a single press can surface as more than one click on the way up. */
 	let flying = false;
 
+	/** 폴더가 가운데로 올 때 비켜 주어야 하는 것들.
+	 *
+	 *  아래로 내려가며 물러납니다. 서랍의 다른 폴더들이 이미 화면 밑으로
+	 *  떨어지고 있으므로, 그 아래에 있던 것들도 같은 방향으로 빠지는 것이
+	 *  한 방향의 비움으로 읽힙니다. 슬로건만 위로 빠집니다 — 폴더보다 위에
+	 *  있던 것이라 위로 가는 것이 제 방향입니다. */
+	const CLEARED = ['.curation', '[data-archive]', '.home__foot'];
+
+	/** 화면에 붙어 떠 있는 단추들. 자리가 페이지에 없으므로 같이 내려갈 수
+	 *  없고, 옅어지는 것으로만 물러납니다. 내려가는 시늉을 하면 페이지와
+	 *  따로 떨어져 움직이는 것으로 보입니다. */
+	const FLOATING = ['.join-dock', '.gb-open'];
+
 	/** What the volume page needs to pick the folder up where this page put it
 	 *  down: the size it is holding when the screen changes. */
 	const HANDOFF = 'vibe-fold:handoff';
@@ -158,6 +171,22 @@
 			other.style.transition = 'none';
 		});
 
+		/** 표지에 얹힌 것. 이름과 소개글(`.folder__copy`), 발치의 연도
+		 *  (`.folder__when`), 표지에 붙은 그림(`.folder__shot`), 그리고 펼침
+		 *  표시(`.folder__heading`)입니다. 색지 자체는 남습니다 — 날아가는
+		 *  것이 폴더이므로 폴더는 보여야 합니다.
+		 *
+		 *  이 목록은 표지의 실제 이름과 맞아야 합니다. 예전에는 여기에
+		 *  `.folder__summary` 와 `.folder__colophon` 이 적혀 있었는데, 그
+		 *  이름을 가진 요소는 표지에 없습니다(볼륨 페이지의 이름입니다).
+		 *  그래서 펼침 표시만 사라지고 이름과 소개글, 연도, 그림은 그대로
+		 *  달린 채 돌아갔습니다. */
+		const PRINTED = '.folder__copy, .folder__when, .folder__shot, .folder__heading';
+		/** 다른 폴더들이 다 빠져나가는 시각. 마지막 폴더가 반 박자씩 늦게
+		 *  출발하므로, 그 늦어진 만큼을 더해야 줄이 완전히 비는 때가 됩니다.
+		 *  집어 올리는 것도 도는 것도 이 시각부터입니다. */
+		const PICKUP = 0.72 + 0.06 * Math.max(0, others.length - 1);
+
 		const timeline = gsap.timeline({
 			onComplete: () => {
 				handOver();
@@ -181,37 +210,84 @@
 				0,
 			)
 			.to('.slogan', { opacity: 0, y: -32, duration: 0.5, ease: 'power2.in' }, 0)
+			/* 폴더 아래에 있던 것들이 아래로 빠집니다. 위에서부터 한 박자씩
+			   늦게 떠나므로 한 덩어리가 사라지는 것이 아니라 훑고 내려가는
+			   것으로 보입니다. */
+			.to(
+				CLEARED.map((selector) => document.querySelector(selector)).filter(Boolean),
+				{ y: 64, opacity: 0, duration: 0.5, ease: 'power2.in', stagger: 0.06 },
+				0,
+			)
+			.to(
+				FLOATING.map((selector) => document.querySelector(selector)).filter(Boolean),
+				{ opacity: 0, duration: 0.28, ease: 'power2.in' },
+				0,
+			)
+			/* 표지에 적힌 것이 먼저 물러납니다.
+			 *
+			 * 돌기 시작한 뒤에 글이 사라지면, 사라지는 일과 도는 일이 겹쳐
+			 * 무엇이 먼저인지 읽히지 않고 글이 도중에 끊긴 것처럼 보입니다.
+			 * 다른 폴더들이 빠져나가는 동안 이 폴더는 가만히 서 있으므로, 그
+			 * 사이에 표지를 비워 둡니다 — 집어 올릴 때는 이미 빈 표지이고,
+			 * 도는 것은 빈 표지가 도는 일이 됩니다. 0.52초에 끝나므로 집어
+			 * 올리는 0.78초까지 4분의 1초가 남습니다.
+			 *
+			 * 서랍에 선 폴더와 날아갈 사본을 함께 지웁니다. 사본은 누른
+			 * 순간에 떠 낸 것이라 그때의 모습을 그대로 들고 있어서, 한쪽만
+			 * 지우면 집어 올리는 순간 글이 되살아납니다. 사본은 아직 숨어
+			 * 있으므로 여기서 지우는 것은 눈에 보이지 않습니다. */
+			.to(
+				[...folder.querySelectorAll(PRINTED), ...proxy.querySelectorAll(PRINTED)],
+				{ opacity: 0, duration: 0.56, ease: 'power2.out' },
+				0.06,
+			)
 			// The stack is clear. From here the folder is a thing being carried
 			// rather than a thing standing in a drawer, so the clone takes over.
-			.call(() => {
-				proxy.style.visibility = '';
-				folder.style.visibility = 'hidden';
-			})
-			// What is printed on the cover goes early: the sheet is about to change
-			// shape under it, and copy reflowing mid-flight is the one thing that
-			// gives the move away as a resize.
-			.to(
-				proxy.querySelectorAll('.folder__summary, .folder__colophon, .folder__heading'),
-				{ opacity: 0, duration: 0.28, ease: 'power2.out' },
-				'<',
+			.call(
+				() => {
+					proxy.style.visibility = '';
+					folder.style.visibility = 'hidden';
+				},
+				[],
+				PICKUP,
 			)
-			// 2. The folder comes to the middle of the screen and turns a quarter
-			//    to the right as it goes — the tab leaves the top edge and finishes
-			//    on the trailing one, which is the way a folder is held to be read
-			//    rather than to be filed. The page changes with it already turned:
-			//    the turn belongs to the picking up, not to the arriving.
+			/* 2. 선 자리에서 한 번 돕니다.
+			 *
+			 * 탭이 윗변을 떠나 뒤쪽 변에 가서 서는 것이 이 회전입니다 — 서랍에
+			 * 꽂아 두는 자세에서 손에 들고 읽는 자세로 바뀝니다.
+			 *
+			 * 도는 동안 크기도 함께 잡습니다. 돌기만 하면 곤란합니다: 세워 둔
+			 * 폴더는 화면보다 길고, 그것이 네 분의 일 돌아가는 순간 길이가
+			 * 폭이 되어 화면 양옆으로 삐져나갑니다. 크기를 같이 줄이면
+			 * 돌아가는 내내 화면 안에 있습니다. 자리는 아직 옮기지 않고,
+			 * 줄어드는 만큼 가운데를 지키도록 왼쪽과 위를 보정합니다. */
+			.to(
+				proxy,
+				{
+					left: from.left + (from.width - to.width) / 2,
+					top: from.top + (from.height - to.height) / 2,
+					width: to.width,
+					height: to.height,
+					rotation: 90,
+					duration: 0.46,
+					ease: 'power2.inOut',
+				},
+				PICKUP,
+			)
+			/* 3. 그러고 나서 화면 한가운데로 내려앉습니다.
+			 *
+			 * 여기서 멈추는 자리가 다음 페이지가 시작하는 자리입니다. 들어올
+			 * 때가 아니라 멈출 때가 중요하므로 `out` 곡선을 씁니다 — 빠르게
+			 * 와서 천천히 내려앉습니다. 페이지는 이 동작이 끝나고 바뀝니다. */
 			.to(
 				proxy,
 				{
 					left: to.left,
 					top: to.top,
-					width: to.width,
-					height: to.height,
-					rotation: 90,
-					duration: 0.72,
-					ease: 'power3.inOut',
+					duration: 0.54,
+					ease: 'power3.out',
 				},
-				'<',
+				PICKUP + 0.46,
 			);
 	}
 
@@ -229,7 +305,7 @@
 			folder.style.transition = '';
 			gsap.set(folder, { clearProps: 'transform' });
 		});
-		gsap.set('.slogan', { clearProps: 'opacity,transform' });
+		gsap.set(['.slogan', ...CLEARED, ...FLOATING], { clearProps: 'opacity,transform' });
 	});
 
 	/** The whole folder is the trigger — the cover, the copy printed on it, the

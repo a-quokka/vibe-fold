@@ -247,6 +247,10 @@
 	/* Tab title. Its own size rather than --text-meta: the tab is a label on a
 	 * physical thing, and reads at the folder's scale, not the footnote's. */
 	--text-tab: 1.125rem;
+	/* 탭 이름을 감싸는 여백. 서랍의 탭과 볼륨 페이지의 탭이 같은 값을 써야
+	 * 합니다 — 탭은 두 화면을 건너 같은 물건으로 읽혀야 하는데, 두 곳에
+	 * 따로 적어 두면 한쪽만 고쳐져 길이가 어긋납니다. */
+	--tab-label-pad: 0.1875rem 0.875rem 0;
 	/* The label on the cover's right edge, and the chevron beside it. */
 	--text-folder-label: 1.125rem;
 	--tab-height: clamp(2.375rem, 4vw, 3.25rem);
@@ -334,6 +338,7 @@
 		--folder-lip: 3rem;
 		--tab-height: 2.25rem;
 		--text-tab: 0.8125rem;
+		--tab-label-pad: 0.125rem 0.625rem 0;
 		--text-folder-label: 1rem;
 		/* 10px tall is ~118px of wordmark; any larger and it runs into the date
 		 * standing on the cover's centre line at 375px. */
@@ -342,7 +347,7 @@
 		/* The tagline carries the whole first screen, so it is sized against the
 		 * screen's width rather than the desktop curve, which leaves it at 22px
 		 * on a phone — a caption, not an opening line. */
-		--text-slogan: clamp(1.625rem, 7.4vw, 2.75rem);
+		--text-slogan: clamp(1.625rem, 8.2vw, 2.75rem);
 	}
 }
 

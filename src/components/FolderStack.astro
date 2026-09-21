@@ -467,7 +467,7 @@ const folders = volumes.map((volume) => ({
 		display: flex;
 		align-items: center;
 		min-width: 0;
-		padding: 0.1875rem 0.875rem 0;
+		padding: var(--tab-label-pad);
 		background: var(--tab-surface);
 		color: var(--folder-ink);
 		font-size: var(--text-tab);
@@ -774,10 +774,6 @@ const folders = volumes.map((volume) => ({
 		   것이 이 때문입니다. */
 		.folder__tabs {
 			right: var(--folder-inset);
-		}
-
-		.tab__label {
-			padding: 0.125rem 0.625rem 0;
 		}
 
 		.folder__vol {

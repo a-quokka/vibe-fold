@@ -195,7 +195,7 @@ const jsonLd = {
 
 	.archive__title {
 		margin: 0;
-		font-size: clamp(1.125rem, 1.8vw, 1.5rem);
+		font-size: clamp(1.375rem, 2.6vw, 2rem);
 		font-weight: 500;
 		line-height: 1.2;
 		letter-spacing: -0.01em;
@@ -292,15 +292,28 @@ const jsonLd = {
 	   보였습니다. 아래위로 20px 만 남기고, 제목이 이고 있던 여백도
 	   줄입니다. */
 	@media (max-width: 48rem) {
+		/* 좁은 화면에서는 사이를 전반적으로 좁힙니다. 넓은 화면에서 쓰는
+		   여백을 그대로 두면, 한 화면에 한 덩어리씩만 들어와서 무엇과 무엇이
+		   한 묶음인지가 스크롤 사이로 흩어집니다. */
 		.curation {
+			padding-top: calc(48px + var(--rail-over-top));
 			padding-bottom: max(
 				0px,
-				calc(20px + var(--rail-over-bot) - var(--space-hero-gap) - var(--tab-height))
+				calc(6px + var(--rail-over-bot) - var(--space-hero-gap) - var(--tab-height))
 			);
 		}
 
 		.archive {
-			margin-bottom: 0.75rem;
+			margin-bottom: 0.5rem;
+		}
+
+		/* 서랍과 발치 사이. 넓은 화면의 100px 은 분홍 색면과 서랍 사이로
+		   검은 바탕을 한 뼘 보이게 하려는 값인데, 좁은 화면에서는 그 한 뼘이
+		   화면의 8분의 1 입니다.
+		   `.home` 을 앞에 적어 둡니다 — 이 규칙이 발치의 본 규칙보다 위에
+		   있어서, 같은 무게로는 아래쪽 100px 에 집니다. */
+		.home .home__foot {
+			margin-top: 56px;
 		}
 	}
 
