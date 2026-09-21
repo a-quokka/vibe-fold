@@ -157,12 +157,30 @@ const { color, ink, label, flipId, title, summary, works } = Astro.props;
 		// the surest way to land where the home page let go is to be told.
 		window.__vibeFoldArrival = record;
 
+		/* 장면이 끝내 자리를 잡지 못하면 페이지를 그대로 보여 줍니다.
+		 *
+		 *  이 장면은 볼륨 페이지의 내용을 스스로 들고 있고, 그동안 페이지가
+		 *  본디 보여 줄 것은 숨겨 둡니다(`html[data-opening]`). 그래서 장면을
+		 *  움직이는 스크립트가 어느 브라우저에서 멈추면 화면에 아무것도 남지
+		 *  않습니다. 5초가 지나도 자리를 잡지 못했거나 스크립트가 예외를
+		 *  던지면, 장면을 걷고 숨겨 둔 페이지를 내놓습니다. 펼쳐지는 모습은
+		 *  못 보여 주더라도 읽을 것은 남아야 합니다. */
+		const bail = () => {
+			const stage = document.querySelector('.opening[data-opening]');
+			if (stage && stage.dataset.settled === 'true') return;
+			delete document.documentElement.dataset.opening;
+			if (stage) stage.remove();
+		};
+
+		window.setTimeout(bail, 5000);
+		window.addEventListener('error', bail);
+
 		// No record means nobody clicked a folder to get here — a reload, a
 		// bookmark, a link. There is no turn to finish, so the scene is marked
 		// and the page arrives the way the reference's own does: already open,
 		// rising from the bottom of the screen.
 		if (!record) {
-			document.querySelector('[data-opening]')?.setAttribute('data-direct', 'true');
+			document.querySelector('.opening[data-opening]')?.setAttribute('data-direct', 'true');
 			return;
 		}
 
@@ -579,6 +597,25 @@ const { color, ink, label, flipId, title, summary, works } = Astro.props;
 		white-space: nowrap;
 	}
 
+	/* 자리를 다 잡은 뒤에는 3D 맥락을 걷습니다.
+	 *
+	 *  펼치는 동안에는 폴더와 표지가 한 소실점 아래에서 같이 돌아야 하므로
+	 *  `perspective` 와 `preserve-3d` 가 필요합니다. 다 펼쳐진 뒤에는 그럴
+	 *  일이 없는데, 그때 이 맥락 안에 남는 것은 화면보다 몇 배 긴 한 장의
+	 *  면입니다. 휴대폰에서는 이 면이 3000픽셀을 넘고, iOS Safari 는 그만큼
+	 *  큰 3D 합성 면을 그리지 못해 아무것도 없는 화면을 내놓습니다.
+	 *
+	 *  걷어 낸 뒤에도 보이는 모습은 같습니다 — 표지는 이미 활짝 돌아가 제
+	 *  뒷면을 보이고 있고, 뒷면은 그리지 않도록 되어 있습니다. */
+	.opening[data-settled] {
+		perspective: none;
+	}
+
+	.opening[data-settled] .opening__folder,
+	.opening[data-settled] .opening__cover {
+		transform-style: flat;
+	}
+
 	.opening__cover {
 		position: absolute;
 		inset: 0;
@@ -635,7 +672,11 @@ const { color, ink, label, flipId, title, summary, works } = Astro.props;
 <script>
 	import { gsap } from 'gsap';
 
-	const scene = document.querySelector<HTMLElement>('[data-opening]');
+	/* 장면을 클래스까지 적어 집습니다. 같은 표시를 `<html>` 에도 달아 두어서
+	   (본문을 숨기는 데 쓰입니다) 표시만으로 찾으면 `<html>` 이 먼저 잡힙니다.
+	   그러면 장면의 상태 표시가 죄다 `<html>` 에 붙어, 그 표시를 기다리는
+	   CSS 는 한 번도 적용되지 않습니다. */
+	const scene = document.querySelector<HTMLElement>('.opening[data-opening]');
 	const folder = document.querySelector<HTMLElement>('[data-opening-folder]');
 	const cover = document.querySelector<HTMLElement>('[data-opening-cover]');
 	const sheet = document.querySelector<HTMLElement>('[data-opening-sheet]');
@@ -865,6 +906,17 @@ const { color, ink, label, flipId, title, summary, works } = Astro.props;
 					position: 'static',
 					transform: 'none',
 				});
+
+				/* 남아 있는 3D 변형을 2D 로 바꿔 적습니다.
+				 *
+				 *  펼치는 동안 GSAP 이 `translate3d` 로 폴더를 옮겨 놓는데, z
+				 *  축이 0 이어도 3D 변형은 그것만으로 요소를 한 장의 합성 면
+				 *  으로 올립니다. 다 펼쳐진 폴더는 휴대폰에서 3000픽셀을 넘고,
+				 *  iOS Safari 는 그만큼 큰 합성 면을 그리지 못해 빈 화면을
+				 *  내놓습니다. 옮겨진 거리는 그대로 두고 적는 방식만
+				 *  바꿉니다. */
+				const shift = new DOMMatrixReadOnly(getComputedStyle(folder).transform).m42;
+				folder.style.transform = shift ? `translateY(${shift}px)` : 'none';
 
 				scene.dataset.settled = 'true';
 				// The page is open; whatever is meant to land on it can land.

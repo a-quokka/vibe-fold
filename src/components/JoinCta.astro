@@ -273,19 +273,15 @@
 		transition-delay: calc((var(--order) - 1) * 45ms);
 	}
 
-	/* 가리킬 포인터가 없는 화면에서는 셋이 처음부터 펼쳐져 있습니다.
-	   그러지 않으면 아무 일도 하지 않는 단어 하나만 보입니다. */
+	/* 손가락으로 쓰는 화면에서는 부채꼴을 조금 좁게 펼칩니다. 화면이 좁아서
+	   7rem 으로는 바깥 둘이 양옆 가장자리에 닿습니다.
+	   예전에는 여기서 셋을 처음부터 펼쳐 두었습니다. 가리킬 포인터가 없으니
+	   펼칠 방법도 없다고 본 것인데, 단추를 눌러 펼치는 동작이 이미 있으므로
+	   그럴 이유가 없었습니다. 늘 펼쳐져 있으면 화면 발치에 단추 넷이 붙어
+	   서서 작품을 가립니다. */
 	@media (hover: none), (pointer: coarse) {
 		.join {
 			--join-r: 6rem;
-		}
-
-		.join__way {
-			opacity: 1;
-			pointer-events: auto;
-			translate:
-				calc(-50% + var(--fx) * var(--join-r))
-				calc(-50% + var(--fy) * var(--join-r));
 		}
 	}
 
@@ -331,6 +327,25 @@
 
 		open.addEventListener('click', () => {
 			set(join.dataset.open !== 'true');
+		});
+
+		/* 펼친 뒤 다른 곳을 누르면 접힙니다.
+		 *
+		 *  마우스로 쓸 때는 손이 떠나면 저절로 접히지만, 손가락에는 떠나는
+		 *  동작이 없습니다. 접을 방법을 두지 않으면 한 번 펼친 셋이 화면
+		 *  발치에 그대로 남아 작품을 가립니다. */
+		document.addEventListener('click', (event) => {
+			if (join.dataset.open !== 'true') return;
+			if (join.contains(event.target as Node)) return;
+			set(false);
+		});
+
+		/* 갈래를 누르면 접습니다. 링크를 따라가는 동안 접히는 것은 보이지
+		 *  않지만, 제안하기는 메일 프로그램을 여는 링크라서 페이지가 그대로
+		 *  남습니다. 돌아왔을 때 펼쳐진 채로 있으면 누른 것이 아무 일도
+		 *  하지 않은 것처럼 보입니다. */
+		ways.forEach((way) => {
+			way.addEventListener('click', () => set(false));
 		});
 
 		// Reaching it by keyboard opens it; leaving closes it again.
