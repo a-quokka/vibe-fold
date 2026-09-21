@@ -6,7 +6,7 @@ import HomeIntro from '../components/HomeIntro.astro';
 import FolderReturn from '../components/FolderReturn.astro';
 import WorkRail from '../components/WorkRail.astro';
 import JoinCta from '../components/JoinCta.astro';
-import { getAllVolumes, onShelf } from '../lib/content';
+import { chapterHref, getAllVolumes, onShelf } from '../lib/content';
 
 /** Everything in the drawer, made or being made.
  *
@@ -21,9 +21,57 @@ const everything = getAllVolumes();
 /** 서랍에는 선반에 있는 볼륨만 섭니다. 내려둔 볼륨은 폴더로 세우지
  *  않습니다. */
 const volumes = everything.filter(onShelf);
+
+/** 검색에 걸리는 문구.
+ *
+ *  제목과 설명은 화면에 보이지 않지만 검색 결과에서는 이 두 줄이 사이트의
+ *  얼굴입니다. 한국어로 적습니다 — 한국 사람이 한국어로 찾을 때 걸려야
+ *  하고, 영어 한 줄만 적어 두면 어느 쪽으로도 걸리지 않습니다. */
+const pageTitle = '바이브 폴더 — 매달 새로운 주제로 실험하는 인터랙션 웹 프로젝트';
+const pageDescription =
+	'바이브 코딩 클럽이 매달 새로운 주제로 만드는 인터랙션 웹 프로젝트를 모아 둔 아카이브입니다. 설화·전설·신화를 인터랙티브 비주얼 스토리로 다시 엮은 작품들을 볼 수 있습니다.';
+
+/** 기계가 읽는 같은 이야기. 사이트가 무엇을 모아 둔 곳이고, 그 안에 어떤
+ *  작품이 누구 손으로 들어 있는지 적습니다. 나와 있는 볼륨의 작품만
+ *  싣습니다 — 아직 없는 페이지를 가리키면 로봇이 404 를 받습니다. */
+const works = everything
+	.filter((volume) => volume.status === 'published')
+	.flatMap((volume) =>
+		volume.chapters.map((chapter) => ({
+			'@type': 'CreativeWork',
+			name: chapter.title,
+			url: new URL(chapterHref(volume.volId, chapter.chId), Astro.site).href,
+			description: chapter.description.replace(/\s+/g, ' ').trim(),
+			author: { '@type': 'Person', name: chapter.creator },
+			thumbnailUrl: new URL(chapter.thumbSrc, Astro.site).href,
+			inLanguage: 'ko',
+		})),
+	);
+
+const jsonLd = {
+	'@context': 'https://schema.org',
+	'@type': 'CollectionPage',
+	name: '바이브 폴더',
+	alternateName: 'Vibe Fold',
+	url: new URL('/', Astro.site).href,
+	description: pageDescription,
+	inLanguage: 'ko',
+	publisher: {
+		'@type': 'Organization',
+		name: 'Vibe Coding Club',
+		alternateName: '바이브 코딩 클럽',
+		url: 'https://vibecodingclub.kr',
+	},
+	hasPart: works,
+};
 ---
 
-<BaseLayout title="Vibe Fold" bodyClass="page-home">
+<BaseLayout
+	title={pageTitle}
+	description={pageDescription}
+	bodyClass="page-home"
+	jsonLd={jsonLd}
+>
 	<div class="home">
 		{/* Ahead of everything it hides.
 		    Whether the page is being come back to is settled by a script, and a
@@ -41,9 +89,12 @@ const volumes = everything.filter(onShelf);
 		<section class="slogan" aria-label="Vibe Fold">
 			{/* 줄바꿈은 브라우저가 고르게 두지 않고 여기서 못 박습니다. 두 줄이
 			    각각 하나의 뜻을 이루고 있어서, 폭에 따라 다른 자리에서 접히면
-			    문장이 다르게 읽힙니다. */}
+			    문장이 다르게 읽힙니다.
+			    좁은 화면에서는 뜻이 한 자리 더 나뉩니다 — 쉼표 뒤에서 한 번
+			    더 끊어 무엇을 만드는 곳인지와 그 이름을 각각 한 줄로
+			    세웁니다. 그 줄바꿈은 좁을 때만 섭니다. */}
 			<h1 class="slogan__text">
-				매달 새로운 주제로 실험하는<br />인터랙션 웹 프로젝트, 바이브 폴더
+				매달 새로운 주제로 실험하는<br />인터랙션 웹 프로젝트,<br class="slogan__turn" /> 바이브 폴더
 			</h1>
 		</section>
 
@@ -257,6 +308,31 @@ const volumes = everything.filter(onShelf);
 		position: relative;
 		z-index: 1;
 		background: transparent;
+	}
+
+	/* 낱말 안에서는 접지 않습니다. 한국어는 글자마다 접을 수 있어서, 그냥
+	   두면 "바이브 폴더" 가 "바이브 폴"/"더" 로 갈라집니다 — 접히는 자리는
+	   낱말 사이여야 합니다. */
+	:global(.slogan__text) {
+		word-break: keep-all;
+	}
+
+	/* 쉼표 뒤의 줄바꿈. 넓을 때는 서 있지 않습니다.
+	 *
+	 * 594px 에서 갈립니다. 글자 크기가 `clamp(1.625rem, 7.4vw, 2.75rem)` 이라
+	 * 그 아래에서는 폭과 함께 커지는데, 둘째 줄은 글자 크기의 12.19배가
+	 * 필요하고 좌우 여백을 뺀 자리는 폭의 0.896배뿐입니다 — 어느 폭에서도
+	 * 두 줄로는 들어가지 않습니다. 2.75rem 이 7.4vw 와 같아지는 폭이
+	 * 594px(37.125rem)이고, 그 위로는 글자가 더 커지지 않으므로 두 줄이
+	 * 제자리를 찾습니다. */
+	:global(.slogan__turn) {
+		display: none;
+	}
+
+	@media (max-width: 37.125rem) {
+		:global(.slogan__turn) {
+			display: inline;
+		}
 	}
 
 	/* 한 화면을 통째로 쓰던 자리였습니다. 그때는 이 상자 안에 작품을 흩어

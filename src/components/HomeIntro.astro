@@ -113,9 +113,12 @@
 
 		const words: HTMLElement[] = [];
 		parts.forEach((part) => {
-			// 못 박아 둔 줄바꿈은 그대로 다시 세웁니다.
+			// 못 박아 둔 줄바꿈은 그대로 다시 세웁니다. 새로 만들지 않고
+			// 베껴 세우는 이유는, 그중 하나가 좁은 화면에서만 서는
+			// 줄바꿈(`.slogan__turn`)이기 때문입니다 — 새로 만들면 그 표시가
+			// 떨어져 나가, 들어오는 동안만 넓은 화면에서도 세 줄이 됩니다.
 			if (part.nodeName === 'BR') {
-				element.append(document.createElement('br'));
+				element.append(part.cloneNode());
 				return;
 			}
 

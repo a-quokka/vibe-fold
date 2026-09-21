@@ -33,6 +33,30 @@ if (!current) {
 }
 
 const pageTitle = `${formatChapterLabel(current.order, current.title)} · ${formatVolumeTitle(volume)}`;
+
+/** 기계가 읽는 이 작품의 신원. 누가 만든 무엇이고 어느 볼륨에 들어 있는지
+ *  적습니다. 검색 결과에 제목 한 줄만 나오는 대신 만든 사람과 그림이 함께
+ *  붙는 것은 이 덕입니다. */
+const jsonLd = {
+	'@context': 'https://schema.org',
+	'@type': 'CreativeWork',
+	name: current.title,
+	url: new URL(Astro.url.pathname, Astro.site).href,
+	description: current.description.replace(/\s+/g, ' ').trim(),
+	author: { '@type': 'Person', name: current.creator },
+	thumbnailUrl: new URL(current.thumbSrc, Astro.site).href,
+	inLanguage: 'ko',
+	isPartOf: {
+		'@type': 'CollectionPage',
+		name: formatVolumeTitle(volume),
+		url: new URL(`/vol/${volume.volId}/`, Astro.site).href,
+	},
+	publisher: {
+		'@type': 'Organization',
+		name: 'Vibe Coding Club',
+		url: 'https://vibecodingclub.kr',
+	},
+};
 ---
 
 <BaseLayout
@@ -43,6 +67,7 @@ const pageTitle = `${formatChapterLabel(current.order, current.title)} · ${form
 	icon={current.faviconSrc}
 	type="article"
 	themeColor="#000000"
+	jsonLd={jsonLd}
 >
 	<ChapterChrome volume={volume} prev={prev} next={next} />
 

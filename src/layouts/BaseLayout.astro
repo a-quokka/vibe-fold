@@ -15,16 +15,21 @@ interface Props {
 	icon?: string;
 	type?: 'website' | 'article';
 	themeColor?: string;
+	/** 검색 로봇이 읽는 요약. 사람이 읽는 화면과 같은 내용을 기계가 읽는
+	 *  형식으로 한 번 더 적어 두는 것입니다 — 이게 있으면 검색 결과에
+	 *  제목과 한 줄 설명만 나오는 대신 만든 사람과 그림까지 붙습니다. */
+	jsonLd?: Record<string, unknown>;
 }
 
 const {
 	title,
-	description = 'We publish visual stories that move the world',
+	description = '매달 새로운 주제로 실험하는 인터랙션 웹 프로젝트를 모아 둔 아카이브입니다.',
 	bodyClass = '',
 	image = '/og.jpg',
 	icon,
 	type = 'website',
 	themeColor = '#191919',
+	jsonLd,
 } = Astro.props;
 
 // Summaries are authored as paragraphs; meta tags want one flat line.
@@ -72,6 +77,8 @@ const shareImage = new URL(image, Astro.site);
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={summary} />
 		<meta name="twitter:image" content={shareImage} />
+
+		{jsonLd ? <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} /> : null}
 	</head>
 	<body class={bodyClass}>
 		<slot />

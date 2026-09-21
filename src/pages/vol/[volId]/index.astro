@@ -33,6 +33,27 @@ const swatch = swatchAt(volume.number);
 
 const summaryParagraphs = volume.summary.split(/\n\n+/).filter(Boolean);
 const title = volume.example ? `${volume.title} (Example)` : volume.title;
+
+/** 기계가 읽는 이 볼륨의 신원. 한 주제 아래 묶인 작품 목록입니다. */
+const jsonLd = {
+	'@context': 'https://schema.org',
+	'@type': 'CollectionPage',
+	name: formatVolumeTitle(volume),
+	url: new URL(Astro.url.pathname, Astro.site).href,
+	description: volume.summary.replace(/\s+/g, ' ').trim(),
+	inLanguage: 'ko',
+	publisher: {
+		'@type': 'Organization',
+		name: 'Vibe Coding Club',
+		url: 'https://vibecodingclub.kr',
+	},
+	hasPart: volume.chapters.map((chapter) => ({
+		'@type': 'CreativeWork',
+		name: chapter.title,
+		url: new URL(chapterHref(volume.volId, chapter.chId), Astro.site).href,
+		author: { '@type': 'Person', name: chapter.creator },
+	})),
+};
 ---
 
 <BaseLayout
@@ -40,6 +61,7 @@ const title = volume.example ? `${volume.title} (Example)` : volume.title;
 	description={volume.summary}
 	bodyClass="page-volume"
 	themeColor={swatch.bg}
+	jsonLd={jsonLd}
 >
 	<div class="page" style={`--sheet: ${swatch.bg}; --ink: ${swatch.ink};`}>
 		<SiteHeader tagline={false} />
