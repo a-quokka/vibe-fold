@@ -289,9 +289,25 @@ const folders = volumes.map((volume) => ({
 		   The cast stays: it falls upward onto the folder standing behind this
 		   one, which is what separates two sheets of the same stock. */
 		box-shadow: var(--folder-drop);
-		transition-property: transform, box-shadow;
-		transition-duration: var(--folder-duration);
+		transition-property: transform, box-shadow, filter;
+		/* 눌림 표시만 빠릅니다. 표지가 열리고 닫히는 것은 폴더의 속도를 그대로
+		   쓰지만, 손이 닿았다는 표시는 닿는 순간과 떼는 순간에 붙어야 합니다. */
+		transition-duration: var(--folder-duration), var(--folder-duration), 90ms;
 		transition-timing-function: var(--folder-ease);
+	}
+
+	/* 손가락으로 누르고 있는 동안의 표시.
+	 *
+	 *  마우스로 쓸 때는 얹기만 해도 표지가 살짝 열려서 어느 폴더를 가리키고
+	 *  있는지 보이지만, 손가락에는 얹는 동작이 없습니다. 게다가 나온 볼륨을
+	 *  누르면 화면이 넘어가기까지 1.4초가 걸리고 그 앞부분에서는 눌린 폴더가
+	 *  아니라 다른 폴더들이 움직여서, 누른 사람에게는 아무 일도 일어나지
+	 *  않은 화면으로 보였습니다. 눌린 동안 표지를 한 톤 눌러 어둡게 해서
+	 *  손이 닿았다는 사실만 즉시 알려 줍니다. */
+	@media (hover: none) {
+		.folder[data-pressed] .folder__front {
+			filter: brightness(0.93);
+		}
 	}
 
 	/* Hovering the body cracks it: roughly 15% of the way to open. */
@@ -932,7 +948,8 @@ const folders = volumes.map((volume) => ({
 		 * Touch has no hover, so there the tab carries the reveal instead: tap to
 		 * open the folder, tap again to close it. The cover still goes to the
 		 * volume. */
-		tab?.addEventListener('click', () => {
+		/** 눌렀을 때 열고 닫는 동작. 손가락으로 쓸 때만 붙습니다. */
+		const toggle = () => {
 			if (finePointer.matches) return;
 
 			const showing = folder.dataset.open === 'true';
@@ -944,7 +961,44 @@ const folders = volumes.map((volume) => ({
 
 			open(index);
 			reveal(index < front ? index : null);
+		};
+
+		tab?.addEventListener('click', toggle);
+
+		/* 아직 나오지 않은 볼륨은 표지를 눌러도 열고 닫습니다.
+		 *
+		 *  이 폴더에는 들어갈 페이지가 없어서 표지에 링크가 걸리지 않고,
+		 *  손가락에는 얹는 동작이 없습니다. 그래서 반응이 탭 조각 하나에만
+		 *  걸려 있었는데, 그 조각은 손가락으로 겨냥하기에 너무 좁아서 표지를
+		 *  눌러도 아무 일이 없는 화면으로 보였습니다. 마우스로 얹었을 때
+		 *  일어나는 일을 손가락으로는 눌렀을 때 일어나게 합니다.
+		 *
+		 *  나온 볼륨은 그대로 둡니다. 그쪽은 표지를 누르면 볼륨으로 넘어가는
+		 *  것이 할 일이고, 여는 동작까지 겹치면 넘어가는 길이 막힙니다. */
+		/* 누르고 있는 동안만 표시를 남깁니다. 손가락이 미끄러져 폴더를
+		   벗어나거나 브라우저가 스크롤로 가로채 가면(`pointercancel`) 표시도
+		   함께 지웁니다 — 누르지 않은 폴더가 눌린 채로 남으면 그것은 표시가
+		   아니라 얼룩입니다. */
+		folder.addEventListener('pointerdown', (event) => {
+			if (isMouse(event)) return;
+			folder.dataset.pressed = '';
 		});
+
+		['pointerup', 'pointercancel', 'pointerleave'].forEach((type) => {
+			folder.addEventListener(type, () => {
+				delete folder.dataset.pressed;
+			});
+		});
+
+		const page = folder.querySelector<HTMLElement>('.folder__page');
+		if (!page) {
+			folder.addEventListener('click', (event) => {
+				// 탭에서 온 눌림은 위에서 이미 처리했습니다. 여기서 한 번 더
+				// 받으면 열자마자 닫힙니다.
+				if ((event.target as HTMLElement | null)?.closest('.tab')) return;
+				toggle();
+			});
+		}
 
 		// Nothing in front of the frontmost folder to push, and its copy is
 		// already in the open.
