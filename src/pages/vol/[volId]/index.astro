@@ -304,12 +304,15 @@ const jsonLd = {
 	.contents__item:hover,
 	.contents__item:focus-visible {
 		opacity: 1;
-		background: color-mix(in srgb, currentColor 12%, transparent);
+		/* 잉크를 12% 로 묽힌 값입니다. 팔레트의 잉크는 색지마다 같은 검정
+		   (#111111)이므로 값을 그대로 적을 수 있습니다. 섞기로 적으면 iOS
+		   16.2 아래에서 이 줄이 버려집니다. */
+		background: rgb(17 17 17 / 0.12);
 	}
 
 	.contents__item[data-active='true'] {
 		opacity: 1;
-		background: color-mix(in srgb, currentColor 20%, transparent);
+		background: rgb(17 17 17 / 0.2);
 	}
 
 	.contents__num {
@@ -354,7 +357,7 @@ const jsonLd = {
 		height: clamp(8rem, 12vw, 10.5rem);
 		object-fit: cover;
 		object-position: center 30%;
-		outline: 1px solid oklch(0 0 0 / 0.1);
+		outline: 1px solid rgb(0 0 0 / 0.1);
 		outline-offset: -1px;
 		pointer-events: none;
 	}
@@ -411,7 +414,7 @@ const jsonLd = {
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.5rem 1rem;
-		border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+		border: 1px solid rgb(17 17 17 / 0.45);
 		border-radius: 999px;
 		background: none;
 		color: inherit;
@@ -439,7 +442,7 @@ const jsonLd = {
 
 	@media (hover: hover) and (pointer: fine) {
 		.volume__next:hover {
-			background: color-mix(in srgb, currentColor 16%, transparent);
+			background: rgb(17 17 17 / 0.16);
 		}
 	}
 

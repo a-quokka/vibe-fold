@@ -57,7 +57,11 @@
 		z-index: 96;
 	}
 
-	/* The way in. */
+	/* The way in.
+	 *
+	 *  참여하기와 같은 재료로 만듭니다. 화면 발치에 떠서 눌리기를 기다리는
+	 *  단추가 둘인데 하나는 어두운 유리, 하나는 밝은 유리이면 같은 자리에
+	 *  놓인 두 단추가 서로 다른 물건으로 읽힙니다. */
 	.gb-open {
 		position: fixed;
 		right: clamp(1rem, 3vw, 2rem);
@@ -65,19 +69,35 @@
 		z-index: 99;
 		display: inline-flex;
 		align-items: center;
-		padding: 0.6875rem 1.125rem;
+		padding: 0.875rem 1.75rem;
 		border: 0;
 		border-radius: 999px;
-		background: rgb(28 28 30 / 0.62);
-		color: #ffffff;
+		/* `--color-text` 를 82% 로 묽힌 값입니다. 섞기(`color-mix`)로 적으면
+		   iOS 16.2 아래에서는 그 줄이 버려지고 단추 바탕이 아예 칠해지지
+		   않습니다 — 어두운 페이지 위에 글자만 남아 안 보입니다. */
+		background: rgb(247 244 239 / 0.82);
+		color: var(--color-bg);
 		font: inherit;
-		font-size: var(--text-meta);
-		font-weight: 600;
+		font-size: 0.875rem;
+		font-weight: 500;
 		line-height: 1;
+		letter-spacing: 0.06em;
+		text-indent: 0.06em;
 		cursor: pointer;
 		backdrop-filter: blur(20px) saturate(180%);
 		-webkit-backdrop-filter: blur(20px) saturate(180%);
-		box-shadow: var(--glass-shadow);
+		/* 참여하기와 같은 네 겹. 윗변에 걸린 빛, 가장자리를 도는 실테,
+		   아랫변에 앉는 옅은 그늘, 페이지에 드리우는 그림자입니다. */
+		box-shadow:
+			inset 0 1px 0 rgb(255 255 255 / 0.6),
+			inset 0 0 0 0.5px rgb(255 255 255 / 0.35),
+			inset 0 -1px 0 rgb(0 0 0 / 0.08),
+			0 1px 2px rgb(0 0 0 / 0.3),
+			0 18px 40px -12px rgb(0 0 0 / 0.72);
+		-webkit-tap-highlight-color: transparent;
+		transition-property: background, box-shadow, scale;
+		transition-duration: 200ms;
+		transition-timing-function: var(--ease-out);
 	}
 
 	.gb-open[hidden] {
@@ -86,7 +106,32 @@
 
 	@media (hover: hover) and (pointer: fine) {
 		.gb-open:hover {
-			background: rgb(28 28 30 / 0.78);
+			background: rgb(247 244 239 / 0.94);
+			box-shadow:
+				inset 0 1px 0 rgb(255 255 255 / 0.7),
+				inset 0 0 0 0.5px rgb(255 255 255 / 0.45),
+				inset 0 -1px 0 rgb(0 0 0 / 0.08),
+				0 1px 2px rgb(0 0 0 / 0.3),
+				0 26px 56px -14px rgb(0 0 0 / 0.88);
+			scale: 1.03;
+		}
+	}
+
+	.gb-open:active {
+		scale: 0.96;
+		transition-duration: 140ms;
+	}
+
+	/* 좁은 화면에서는 발치 가운데에 섭니다. 오른쪽 구석은 엄지가 닿기에는
+	   좋지만, 그 자리에서 발치의 서명과 링크 위에 겹쳐 앉았습니다.
+	   홈은 예외입니다. 그 페이지에는 참여하기가 이미 가운데에 서 있고, 그
+	   단추는 눌리면 세 갈래를 위쪽으로 96px 까지 펼칩니다 — 가운데에 하나
+	   더 세우면 펼쳐지는 갈래와 부딪힙니다. */
+	@media (max-width: 48rem) {
+		body:not(.page-home) .gb-open {
+			right: auto;
+			left: 50%;
+			translate: -50% 0;
 		}
 	}
 

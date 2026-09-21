@@ -30,3 +30,25 @@ export const FOLDER_COLORS: Swatch[] = [
 export function swatchAt(index: number): Swatch {
 	return FOLDER_COLORS[index % FOLDER_COLORS.length];
 }
+
+/** 색 하나를 묽혀 적습니다.
+ *
+ *  CSS 의 섞기(`color-mix`)로 하면 한 줄로 끝나지만, iOS 16.2 아래에서는
+ *  그 줄이 통째로 버려져 바탕이 아예 칠해지지 않습니다. 팔레트의 값은
+ *  빌드할 때 이미 알고 있으므로, 여기서 미리 묽혀 어느 브라우저나 읽는
+ *  표기로 넘깁니다. */
+export function fade(hex: string, alpha: number): string {
+	const value = hex.replace('#', '');
+	const full =
+		value.length === 3
+			? value
+					.split('')
+					.map((c) => c + c)
+					.join('')
+			: value;
+	const r = Number.parseInt(full.slice(0, 2), 16);
+	const g = Number.parseInt(full.slice(2, 4), 16);
+	const b = Number.parseInt(full.slice(4, 6), 16);
+
+	return `rgb(${r} ${g} ${b} / ${alpha})`;
+}

@@ -23,7 +23,7 @@
  */
 import type { Volume } from '../lib/content';
 import { chapterHref, formatVolLabel } from '../lib/content';
-import { swatchAt } from '../lib/palette';
+import { fade, swatchAt } from '../lib/palette';
 
 interface Props {
 	volumes: Volume[];
@@ -85,6 +85,9 @@ const dressed = works.map((work, i) => ({
 	...work,
 	face: FACES[i % FACES.length],
 	tint: swatchAt(TINTS[i % TINTS.length]).bg,
+	/* 색지 카드의 바탕. 유리처럼 뒤가 비쳐야 하므로 74% 로 묽힙니다. 묽히는
+	   일은 빌드할 때 해 둡니다 — 자세한 이유는 `fade` 에 적어 두었습니다. */
+	tintFill: fade(swatchAt(TINTS[i % TINTS.length]).bg, 0.74),
 }));
 
 if (featured > -1 && featured !== middle) {
@@ -136,7 +139,7 @@ const home = middle;
 	<div class="scrim" data-scrim hidden></div>
 
 	{
-		deck.map(({ chapter, volume, href, face, tint, story }, index) => (
+		deck.map(({ chapter, volume, href, face, tint, tintFill, story }, index) => (
 			/* 자리와 물건을 나눕니다. 자리(`.slot`)는 돌지도 기울지도 않으므로,
 			   카드를 한가운데로 옮길 거리를 잴 때 쓸 수 있는 유일한 기준입니다.
 			   기운 카드에서 직접 재면 기운 만큼 비뚤어진 값이 나옵니다. */
@@ -145,7 +148,7 @@ const home = middle;
 					class="card"
 					data-card
 					data-face={face}
-					style={face === 'tint' ? `--face-bg: ${tint};` : undefined}
+					style={face === 'tint' ? `--face-bg: ${tint}; --face-fill: ${tintFill};` : undefined}
 				>
 					<button class="card__front" type="button" data-open-card aria-expanded="false">
 						<span class="card__shot">
@@ -378,36 +381,38 @@ const home = middle;
 	   어두운 바탕에는 흰 실선입니다. 회색이 섞인 실선은 바탕색을 받아
 	   그림 가장자리에 때처럼 앉습니다. */
 	.card[data-face='paper'] {
-		--face-fill: color-mix(in srgb, var(--color-card) 74%, transparent);
+		--face-fill: rgb(255 255 255 / 0.74);
 		--face-solid: var(--color-card);
 		--face-ink: var(--color-card-text);
-		--face-line: oklch(0 0 0 / 0.1);
-		--face-soft: oklch(0 0 0 / 0.55);
-		--face-well: oklch(0 0 0 / 0.06);
-		--face-well-strong: oklch(0 0 0 / 0.12);
-		--face-faint: oklch(0 0 0 / 0.3);
+		--face-line: rgb(0 0 0 / 0.1);
+		--face-soft: rgb(0 0 0 / 0.55);
+		--face-well: rgb(0 0 0 / 0.06);
+		--face-well-strong: rgb(0 0 0 / 0.12);
+		--face-faint: rgb(0 0 0 / 0.3);
 	}
 
 	.card[data-face='tint'] {
-		--face-fill: color-mix(in srgb, var(--face-bg) 74%, transparent);
+		/* 실제 값은 카드마다 인라인으로 넘어옵니다(`--face-fill`). 이 줄은
+		   그것이 없을 때를 위한 자리로, 색지 없이 흰 종이로 섭니다. */
+		--face-fill: rgb(255 255 255 / 0.74);
 		--face-solid: var(--face-bg);
 		--face-ink: var(--color-card-text);
-		--face-line: oklch(0 0 0 / 0.1);
-		--face-soft: oklch(0 0 0 / 0.6);
-		--face-well: oklch(0 0 0 / 0.08);
-		--face-well-strong: oklch(0 0 0 / 0.14);
-		--face-faint: oklch(0 0 0 / 0.32);
+		--face-line: rgb(0 0 0 / 0.1);
+		--face-soft: rgb(0 0 0 / 0.6);
+		--face-well: rgb(0 0 0 / 0.08);
+		--face-well-strong: rgb(0 0 0 / 0.14);
+		--face-faint: rgb(0 0 0 / 0.32);
 	}
 
 	.card[data-face='ink'] {
-		--face-fill: color-mix(in srgb, #1b1b1b 66%, transparent);
+		--face-fill: rgb(27 27 27 / 0.66);
 		--face-solid: #1b1b1b;
 		--face-ink: var(--color-text);
-		--face-line: oklch(1 0 0 / 0.1);
-		--face-soft: oklch(1 0 0 / 0.62);
-		--face-well: oklch(1 0 0 / 0.1);
-		--face-well-strong: oklch(1 0 0 / 0.18);
-		--face-faint: oklch(1 0 0 / 0.34);
+		--face-line: rgb(255 255 255 / 0.1);
+		--face-soft: rgb(255 255 255 / 0.62);
+		--face-well: rgb(255 255 255 / 0.1);
+		--face-well-strong: rgb(255 255 255 / 0.18);
+		--face-faint: rgb(255 255 255 / 0.34);
 	}
 
 	.card__front,
@@ -707,7 +712,7 @@ const home = middle;
 		inset: 0;
 		border: 0;
 		padding: 0;
-		background: oklch(0 0 0 / 0.66);
+		background: rgb(0 0 0 / 0.66);
 		opacity: 0;
 		transition: opacity 240ms var(--ease-out);
 	}

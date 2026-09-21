@@ -325,6 +325,11 @@
  * shoulder floats free of the label. The width comes off the tab's height. */
 @media (max-width: 720px) {
 	:root {
+		/* 머리글이 쓰는 띠. 넓은 화면에서는 머리글 위아래로 넉넉히 비워
+		 * 두지만, 좁은 화면에서 200px 은 화면의 4분의 1 입니다 — 펼친 폴더가
+		 * 그만큼 아래에서 시작해서, 들어오자마자 보이는 것이 검은 여백뿐
+		 * 이었습니다. 머리글이 실제로 쓰는 높이에 한 뼘만 더합니다. */
+		--stage-clear: 6.5rem;
 		--folder-inset: 1.25rem;
 		--folder-lip: 3rem;
 		--tab-height: 2.25rem;
@@ -431,7 +436,9 @@ p {
  * in the site's own colour. The tint is CSS; the bars are drawn by
  * SelectionHandles, because no browser gives them to a pointer device. */
 ::selection {
-	background: color-mix(in srgb, var(--color-select) 32%, transparent);
+	/* 핫핑크(#ff2e88)를 32% 로 묽힌 값입니다. 섞기로 적으면 iOS 16.2
+	 * 아래에서 이 줄이 버려지고 선택한 글이 아무 색도 입지 않습니다. */
+	background: rgb(255 46 136 / 0.32);
 }
 
 .visually-hidden {

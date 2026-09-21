@@ -130,7 +130,7 @@ const placed = works.map((work, i) => ({ ...work, ...scatterAt(i, works.length) 
 		object-position: center 30%;
 		/* 그림의 가장자리가 어두운 바탕에 녹지 않도록 아주 옅은 테두리를
 		   둡니다. 색을 띤 테두리는 그림 끝에 때가 낀 것처럼 보입니다. */
-		outline: 1px solid oklch(1 0 0 / 0.1);
+		outline: 1px solid rgb(255 255 255 / 0.1);
 		outline-offset: -1px;
 	}
 
@@ -157,7 +157,7 @@ const placed = works.map((work, i) => ({ ...work, ...scatterAt(i, works.length) 
 		flex-direction: column;
 		gap: 0.15em;
 		padding: 0.5em 0.6em;
-		background: linear-gradient(to top, oklch(0 0 0 / 0.88), oklch(0 0 0 / 0.72) 62%, transparent);
+		background: linear-gradient(to top, rgb(0 0 0 / 0.88), rgb(0 0 0 / 0.72) 62%, transparent);
 		color: #fff;
 		opacity: 0;
 		transition: opacity 240ms var(--ease-out);

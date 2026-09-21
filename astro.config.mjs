@@ -1,6 +1,14 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import {
+	cpSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
@@ -48,6 +56,52 @@ function syncContentToPublic() {
 			cpSync(chapterPath, dest, { recursive: true });
 		});
 	}
+}
+
+/** 내보낸 자바스크립트를 옛 문법으로 번역합니다.
+ *
+ *  최신 문법(예컨대 `||=`)이 한 군데라도 남아 있으면, 그것을 모르는
+ *  브라우저는 파일 전체를 파싱하지 못하고 자바스크립트를 한 줄도 실행하지
+ *  않습니다. 화면이 조금 덜 예쁜 정도가 아니라, 들어오는 움직임도 폴더가
+ *  펼쳐지는 장면도 통째로 사라지고, 본문을 숨겨 두고 스크립트가 다시 켜는
+ *  화면은 빈 화면으로 남습니다. 아이폰의 인앱 브라우저(네이버 앱 등)는
+ *  iOS 의 WebKit 을 그대로 쓰므로, 낡은 기기를 쓰는 사람이 여기에 그대로
+ *  걸립니다.
+ *
+ *  `vite.build.target` 으로 지정하는 길도 있지만 Astro 가 그 값을 쓰지
+ *  않습니다 — 지정해도 청크가 그대로 나옵니다. 그래서 빌드가 끝난 뒤에
+ *  esbuild 로 한 번 더 번역합니다. 기준은 es2019 입니다. 브라우저 이름으로
+ *  적는 길(`safari13`)도 있지만, 그러면 esbuild 가 구조 분해 문법을 옮기지
+ *  못한다며 거부합니다. 해의 이름으로 적으면 옮길 수 있는 것만 옮기고,
+ *  `||=` 같은 최신 문법은 남기지 않습니다. */
+function lowerClientScripts() {
+	return {
+		name: 'vibe-lower-client-scripts',
+		hooks: {
+			'astro:build:done': async ({ dir, logger }) => {
+				const { transform } = await import('esbuild');
+				const assets = join(fileURLToPath(dir), '_astro');
+				if (!existsSync(assets)) return;
+
+				let count = 0;
+				for (const name of readdirSync(assets)) {
+					if (!name.endsWith('.js')) continue;
+
+					const file = join(assets, name);
+					const { code } = await transform(readFileSync(file, 'utf8'), {
+						target: 'es2019',
+						format: 'esm',
+						minify: true,
+						legalComments: 'none',
+					});
+					writeFileSync(file, code);
+					count += 1;
+				}
+
+				logger.info(`옛 문법으로 번역한 스크립트 ${count}개 (es2019)`);
+			},
+		},
+	};
 }
 
 /** @type {import('astro').AstroIntegration} */
@@ -108,7 +162,7 @@ function allowSandboxedChapterAssets() {
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://fold.vibecodingclub.kr',
-	integrations: [contentSyncIntegration()],
+	integrations: [contentSyncIntegration(), lowerClientScripts()],
 	vite: {
 		plugins: [allowSandboxedChapterAssets()],
 	},

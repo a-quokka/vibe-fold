@@ -416,7 +416,10 @@ const { color, ink, label, flipId, title, summary, works } = Astro.props;
 
 	.opening__work-title {
 		font-size: var(--text-body);
-		font-weight: 600;
+		/* 한 단 아래. Gmarket Sans 는 600~700 을 Bold 한 벌로, 400~500 을
+		   Medium 한 벌로 그리므로, 600 에서 한 단 내리는 것은 500 입니다 —
+		   그 사이에 다른 굵기가 없습니다. */
+		font-weight: 500;
 	}
 
 	/* The works, stacked down the folder under the sheet. */
@@ -496,7 +499,9 @@ const { color, ink, label, flipId, title, summary, works } = Astro.props;
 
 	.pop__name {
 		font-size: 0.8125rem;
-		font-weight: 600;
+		/* 목록의 작품 이름과 같은 굵기입니다. 같은 작품의 이름이 목록에서는
+		   Medium, 창의 머리에서는 Bold 이면 둘이 다른 것처럼 읽힙니다. */
+		font-weight: 500;
 		line-height: 1;
 		color: rgb(0 0 0 / 0.74);
 		white-space: nowrap;
@@ -671,6 +676,30 @@ const { color, ink, label, flipId, title, summary, works } = Astro.props;
 		box-shadow: var(--folder-rim);
 		border-radius: var(--folder-radius) 0 0 var(--folder-radius);
 		transform: rotateY(180deg);
+	}
+
+	/* 좁은 화면에서는 펼친 면의 글을 한 단 내립니다.
+	 *
+	 *  이 면은 폭이 좁아진 만큼 한 줄에 들어가는 글자가 줄어드는데, 글자
+	 *  크기가 그대로면 문단이 여러 줄로 늘어져 읽는 눈이 자주 되돌아옵니다.
+	 *  제목과 본문, 목록이 같은 비율로 함께 내려가야 셋의 관계가 유지
+	 *  됩니다. */
+	@media (max-width: 48rem) {
+		.opening__title {
+			font-size: 1.25rem;
+		}
+
+		.opening__copy {
+			font-size: 0.875rem;
+		}
+
+		.opening__work-title {
+			font-size: 0.875rem;
+		}
+
+		.opening__work-label {
+			font-size: 0.75rem;
+		}
 	}
 
 	/* Nothing to animate: the folder is already open and the page is underneath. */
