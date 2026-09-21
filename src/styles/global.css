@@ -328,7 +328,7 @@
 		--folder-inset: 1.25rem;
 		--folder-lip: 3rem;
 		--tab-height: 2.25rem;
-		--text-tab: 0.9375rem;
+		--text-tab: 0.8125rem;
 		--text-folder-label: 1rem;
 		/* 10px tall is ~118px of wordmark; any larger and it runs into the date
 		 * standing on the cover's centre line at 375px. */
@@ -348,7 +348,7 @@
 		--folder-inset: 1rem;
 		--folder-lip: 2.75rem;
 		--tab-height: 2rem;
-		--text-tab: 0.875rem;
+		--text-tab: 0.75rem;
 		--text-folder-label: 0.9375rem;
 		--size-club-mark: 0.5rem;
 	}
