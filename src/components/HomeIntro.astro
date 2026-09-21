@@ -62,6 +62,15 @@
 		display: inline-block;
 		will-change: transform;
 	}
+
+	/* 낱글자는 제가 속한 낱말의 상자 안에서 움직입니다. 상자는 여전히 낱말
+	   하나에 하나뿐이므로, 낱말이 차지하는 폭은 쪼개기 전과 같습니다 —
+	   낱말 사이의 자간만 지키면 되고, 글자 사이는 낱말 안쪽 일이라
+	   글자마다 상자를 씌울 때처럼 줄 길이가 달라지지 않습니다. */
+	.slogan__word span > span {
+		display: inline-block;
+		will-change: transform;
+	}
 </style>
 
 <script>
@@ -77,14 +86,16 @@
 	/** Set by the split, called when the timeline is done. */
 	let restore: (() => void) | null = null;
 
-	/** Wrap every word in a clipped box of its own and hand back the words,
-	 *  grouped into the lines they actually landed on. Measured rather than
-	 *  declared: the slogan is balanced by the browser, so where it breaks
-	 *  depends on the width it was given.
+	/** Wrap every word in a clipped box of its own, then every letter inside
+	 *  that box in a box of its own, and hand back the letters grouped into the
+	 *  lines they actually landed on. Measured rather than declared: the slogan
+	 *  is balanced by the browser, so where it breaks depends on the width it
+	 *  was given.
 	 *
-	 *  A line rises as one piece, so the split only has to be fine enough to
-	 *  tell the lines apart — and the word is the smallest unit that can be
-	 *  boxed without changing what the line measures. */
+	 *  가리는 상자는 여전히 낱말마다 하나입니다. 글자마다 상자를 씌우면 글자
+	 *  하나하나의 자리가 정수로 반올림되고 사이 자간이 끊겨, 이 줄에서만
+	 *  3.5px 이 늘어났다가 본문으로 되돌릴 때 한 번에 튀었습니다. 낱말
+	 *  상자 안에서 낱글자만 따로 움직이면 줄 길이는 그대로입니다. */
 	const splitLines = (element: HTMLElement): HTMLElement[][] => {
 		/* 글자만이 아니라 마크업 전체를 들고 있다가 돌려줍니다. 글자만 담아
 		   두면 지은이가 못 박아 둔 줄바꿈(`<br>`)이 쪼개는 동안 사라지고,
@@ -118,7 +129,14 @@
 				const mask = document.createElement('span');
 				mask.className = 'slogan__word';
 				const inner = document.createElement('span');
-				inner.textContent = token;
+				// 낱말 안을 다시 글자 하나씩으로 나눕니다. 이모지처럼 두
+				// 조각으로 적히는 글자가 반으로 갈리지 않도록 `Array.from`
+				// 으로 셉니다.
+				Array.from(token).forEach((glyph) => {
+					const letter = document.createElement('span');
+					letter.textContent = glyph;
+					inner.append(letter);
+				});
 				mask.append(inner);
 				element.append(mask);
 				words.push(inner);
@@ -129,9 +147,11 @@
 		words.forEach((word) => {
 			// Rounded: words on one line differ by a fraction of a pixel.
 			const top = Math.round(word.getBoundingClientRect().top);
+			const letters = Array.from(word.children) as HTMLElement[];
 			const line = lines.get(top);
-			if (line) line.push(word);
-			else lines.set(top, [word]);
+			// 줄 안에서는 적힌 차례 그대로입니다 — 낱말도 글자도 왼쪽부터.
+			if (line) line.push(...letters);
+			else lines.set(top, letters);
 		});
 
 		return Array.from(lines.entries())
@@ -219,11 +239,21 @@
 
 		if (title) {
 			gsap.set(title, { opacity: 1 });
+			/* 줄은 여전히 한 줄씩 차례로 시작하고, 그 안에서 글자가 하나씩
+			   따라 올라옵니다. 글자 사이 간격은 35ms — 이보다 벌리면 줄이
+			   흘러가는 것으로 보이고, 좁히면 줄 하나가 통째로 올라오는
+			   것과 구별되지 않습니다. */
 			lines.forEach((line, index) => {
 				timeline.fromTo(
 					line,
-					{ yPercent: 100, opacity: 0 },
-					{ yPercent: 0, opacity: 1, duration: 0.9, clearProps: 'transform,opacity' },
+					{ yPercent: 110, opacity: 0 },
+					{
+						yPercent: 0,
+						opacity: 1,
+						duration: 0.9,
+						stagger: 0.035,
+						clearProps: 'transform,opacity',
+					},
 					0.4 + index * 0.2,
 				);
 			});
