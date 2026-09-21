@@ -33,10 +33,15 @@
 	 *  있던 것이라 위로 가는 것이 제 방향입니다. */
 	const CLEARED = ['.curation', '[data-archive]', '.home__foot'];
 
-	/** 화면에 붙어 떠 있는 단추들. 자리가 페이지에 없으므로 같이 내려갈 수
-	 *  없고, 옅어지는 것으로만 물러납니다. 내려가는 시늉을 하면 페이지와
-	 *  따로 떨어져 움직이는 것으로 보입니다. */
-	const FLOATING = ['.join-dock', '.gb-open'];
+	/** 페이지 위에 얹혀 떠 있는 것들. 자리가 페이지의 흐름에 없으므로 같이
+	 *  내려갈 수 없고, 옅어지는 것으로만 물러납니다. 내려가는 시늉을 하면
+	 *  페이지와 따로 떨어져 움직이는 것으로 보입니다.
+	 *
+	 *  떠 있는 단추 둘과, 페이지에 꽂혀 있는 방명록 쪽지들, 그리고 반짝이는
+	 *  가루판입니다. 앞의 것들만 물러나게 두었더니 폴더가 돌아가는 내내
+	 *  쪽지들이 화면에 남아 있었습니다 — 폴더 하나만 남아야 그것이 손에
+	 *  들린 물건으로 읽힙니다. */
+	const FLOATING = ['.join-dock', '.gb-open', '.guestbook__notes', '.sparkles'];
 
 	/** What the volume page needs to pick the folder up where this page put it
 	 *  down: the size it is holding when the screen changes. */
@@ -182,10 +187,18 @@
 		 *  그래서 펼침 표시만 사라지고 이름과 소개글, 연도, 그림은 그대로
 		 *  달린 채 돌아갔습니다. */
 		const PRINTED = '.folder__copy, .folder__when, .folder__shot, .folder__heading';
-		/** 다른 폴더들이 다 빠져나가는 시각. 마지막 폴더가 반 박자씩 늦게
-		 *  출발하므로, 그 늦어진 만큼을 더해야 줄이 완전히 비는 때가 됩니다.
-		 *  집어 올리는 것도 도는 것도 이 시각부터입니다. */
-		const PICKUP = 0.72 + 0.06 * Math.max(0, others.length - 1);
+		/** 다른 폴더들이 떠나는 데 걸리는 시간과, 한 장씩 늦게 출발하는 간격.
+		 *  아래의 타임라인과 같은 값을 써야 하므로 여기 한 번만 적습니다. */
+		const LEAVE = 0.72;
+		const STAGGER = 0.06;
+		/** 폴더를 집어 드는 시각.
+		 *
+		 *  마지막 폴더가 빠져나간 뒤 한 박자(0.16초) 쉽니다. 붙여 두면 마지막
+		 *  폴더가 화면을 벗어나는 순간과 이 폴더가 움직이기 시작하는 순간이
+		 *  맞물려, 아직 남아 있는 폴더 옆에서 이 폴더가 돌기 시작하는 것으로
+		 *  보입니다. 화면이 한 번 비고 나서 들리는 것이, 남은 하나가 손에 들린
+		 *  물건이라는 말이 됩니다. */
+		const PICKUP = LEAVE + STAGGER * Math.max(0, others.length - 1) + 0.16;
 
 		const timeline = gsap.timeline({
 			onComplete: () => {
@@ -203,9 +216,9 @@
 				others,
 				{
 					y: () => window.innerHeight,
-					duration: 0.72,
+					duration: LEAVE,
 					ease: 'power2.in',
-					stagger: 0.06,
+					stagger: STAGGER,
 				},
 				0,
 			)

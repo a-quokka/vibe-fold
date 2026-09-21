@@ -200,6 +200,23 @@
 		font-variant-numeric: tabular-nums;
 	}
 
+	/* 좁은 화면의 말풍선은 한 단 작게. 남이 남긴 한 문장이 화면 폭의 절반을
+	   차지하면, 그것은 곁에 놓인 쪽지가 아니라 읽어야 하는 본문이 됩니다.
+	   글자와 여백, 둥글기를 같은 비율로 함께 줄여야 알약 모양이 유지
+	   됩니다. */
+	@media (max-width: 48rem) {
+		:global(.gb-note__bubble) {
+			max-width: min(260px, calc(100vw - 6rem));
+			padding: 0.5rem 0.6875rem;
+			border-radius: 0.875rem;
+			font-size: 0.8125rem;
+		}
+
+		:global(.gb-note__time) {
+			font-size: 0.625rem;
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		:global(.gb-note) {
 			translate: 0 0;
