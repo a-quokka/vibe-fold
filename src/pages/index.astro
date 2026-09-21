@@ -189,7 +189,10 @@ const jsonLd = {
 		display: flex;
 		justify-content: center;
 		padding: 0 var(--page-pad);
-		margin-bottom: clamp(1rem, 1.5vw, 1.25rem);
+		/* 제목과 서랍 사이. 카드 줄을 제목 쪽으로 붙인 만큼, 아래쪽은 반대로
+		   벌려 둡니다 — 위가 좁고 아래가 넓으면 제목이 카드 줄에 딸린 이름이
+		   아니라 서랍의 이름으로 읽힙니다. */
+		margin-bottom: clamp(1.5rem, 3.6vw, 3.25rem);
 		text-align: center;
 	}
 
@@ -286,10 +289,11 @@ const jsonLd = {
 		position: relative;
 		z-index: 1;
 		padding-top: calc(90px + var(--rail-over-top));
-		padding-bottom: max(
-			0px,
-			calc(24px + var(--rail-over-bot) - var(--space-hero-gap) - var(--tab-height))
-		);
+		/* 카드 발치와 아카이브 제목 사이. 카드가 줄 밖으로 삐져나오는 깊이는
+		   스크립트가 재서 `--rail-spill` 로 알려 주므로, 여기 적는 24px 이
+		   곧 눈에 보이는 간격입니다. 예전에는 카드 폭의 0.471배를 예비로
+		   잡아 두어 1440px 에서 130px 이 남았습니다. */
+		padding-bottom: calc(44px + var(--rail-spill, 0px));
 	}
 
 	/* 좁은 화면에서는 카드와 제목 사이를 좁힙니다. 부채가 작아지면 가운데
@@ -303,10 +307,7 @@ const jsonLd = {
 		   한 묶음인지가 스크롤 사이로 흩어집니다. */
 		.curation {
 			padding-top: calc(48px + var(--rail-over-top));
-			padding-bottom: max(
-				0px,
-				calc(6px + var(--rail-over-bot) - var(--space-hero-gap) - var(--tab-height))
-			);
+			padding-bottom: calc(12px + var(--rail-spill, 0px));
 		}
 
 		.archive {

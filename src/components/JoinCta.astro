@@ -21,7 +21,15 @@
 
 <div class="join-dock">
 	<div class="join" data-join>
-		<button class="join__open" type="button" data-join-open aria-expanded="false">참여하기</button>
+		{/* 이름 하나와 한 문장. 둘을 겹쳐 두고 가리킬 때 바꿔 답니다. 읽어 주는
+		    기계에는 이름만 들려줍니다 — 단추가 하는 일은 여는 것이고, 문장은
+		    가리킨 손에 건네는 인사입니다. */}
+		<button class="join__open" type="button" data-join-open aria-expanded="false" aria-label="참여하기">
+			<span class="join__word" data-join-word>참여하기</span>
+			<span class="join__welcome" data-join-welcome aria-hidden="true">
+				여러분들을 기다리고 있어요!
+			</span>
+		</button>
 
 		{/* 세 갈래가 놓이는 자리는 반지름 `--join-r` 인 원 위의 각도에서
 		    나옵니다 — 왼쪽 55도, 꼭대기, 오른쪽 55도. 손으로 적은 좌표가
@@ -149,6 +157,16 @@
 	   갈래보다 훨씬 밝아 무엇을 먼저 누르라는 것인지는 그대로 읽힙니다. */
 	.join__open {
 		position: relative;
+		/* 가리키면 이름이 한 문장으로 바뀝니다.
+		 *
+		 *  두 글을 겹쳐 두고 바꿔 다는데, 그러면 단추의 폭이 둘 가운데 넓은
+		 *  쪽으로 고정됩니다 — 닫힌 단추가 문장만큼 길어집니다. 그래서 두
+		 *  글의 폭을 스크립트가 재서 알려 주고(`--join-w`, `--join-wide`),
+		 *  단추는 그 사이를 오갑니다. 폭을 다루는 전환이지만 화면에 붙어 선
+		 *  단추 하나의 일이고, 자주 일어나는 동작도 아닙니다.
+		 *
+		 *  잰 값이 아직 없을 때는 글자가 폭을 정하도록 `auto` 로 둡니다. */
+		width: var(--join-w, auto);
 		/* 갈래들보다 앞에 서서, 펼쳐지는 것들이 이 위를 가로지르지 않고
 		   뒤로 지나가게 합니다. */
 		z-index: 1;
@@ -183,9 +201,45 @@
 		/* 우리가 그리는 눌린 모양과 겹쳐 두 번 번쩍이지 않도록 기본
 		   하이라이트를 끕니다. */
 		-webkit-tap-highlight-color: transparent;
-		transition-property: background, box-shadow, scale;
-		transition-duration: 200ms;
+		transition-property: background, box-shadow, scale, width;
+		transition-duration: 200ms, 200ms, 200ms, 260ms;
 		transition-timing-function: var(--ease-out);
+	}
+
+	/* 두 글은 같은 자리에 섭니다. 단추의 폭이 바뀌는 동안 글이 좌우로 밀리지
+	   않도록 가운데를 축으로 세웁니다. */
+	.join__word,
+	.join__welcome {
+		display: block;
+		white-space: nowrap;
+		transition-property: opacity;
+		transition-duration: 160ms;
+		transition-timing-function: var(--ease-out);
+	}
+
+	.join__welcome {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		translate: -50% -50%;
+		opacity: 0;
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.join:hover .join__open,
+		.join:focus-within .join__open {
+			width: var(--join-wide, auto);
+		}
+
+		.join:hover .join__word,
+		.join:focus-within .join__word {
+			opacity: 0;
+		}
+
+		.join:hover .join__welcome,
+		.join:focus-within .join__welcome {
+			opacity: 1;
+		}
 	}
 
 	@media (hover: hover) and (pointer: fine) {
@@ -314,6 +368,29 @@
 
 	if (join && open) {
 		const ways = Array.from(join.querySelectorAll<HTMLAnchorElement>('.join__way'));
+
+		/** 단추가 오갈 두 폭을 재서 적어 둡니다.
+		 *
+		 *  글의 폭에 단추의 좌우 여백을 더한 값입니다. 글꼴이 도착하면 글의
+		 *  폭이 바뀌므로 그때 다시 재고, 화면 폭이 바뀔 때도 다시 잽니다
+		 *  (여백이 화면에 따라 달라집니다). */
+		const word = join.querySelector<HTMLElement>('[data-join-word]');
+		const welcome = join.querySelector<HTMLElement>('[data-join-welcome]');
+
+		const measure = () => {
+			if (!word || !welcome) return;
+
+			const style = getComputedStyle(open);
+			const padding =
+				Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight);
+
+			open.style.setProperty('--join-w', `${Math.ceil(word.scrollWidth + padding)}px`);
+			open.style.setProperty('--join-wide', `${Math.ceil(welcome.scrollWidth + padding)}px`);
+		};
+
+		measure();
+		if (document.fonts) document.fonts.ready.then(measure);
+		window.addEventListener('resize', measure);
 
 		/** Hover is enough for a mouse and reaches nobody else. Pressing the word
 		 *  opens it too, which is what a finger and a keyboard both do — and

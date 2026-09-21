@@ -85,9 +85,11 @@ const dressed = works.map((work, i) => ({
 	...work,
 	face: FACES[i % FACES.length],
 	tint: swatchAt(TINTS[i % TINTS.length]).bg,
-	/* 색지 카드의 바탕. 유리처럼 뒤가 비쳐야 하므로 74% 로 묽힙니다. 묽히는
+	/* 색지 카드의 바탕. 유리처럼 뒤가 살짝 비치도록 90% 로 묽힙니다. 74%
+	   에서는 뒤에 선 카드의 그림이 그대로 읽혀서, 겹쳐 선 다섯 장이 서로의
+	   그림을 섞었습니다. 묽히는
 	   일은 빌드할 때 해 둡니다 — 자세한 이유는 `fade` 에 적어 두었습니다. */
-	tintFill: fade(swatchAt(TINTS[i % TINTS.length]).bg, 0.74),
+	tintFill: fade(swatchAt(TINTS[i % TINTS.length]).bg, 0.9),
 }));
 
 if (featured > -1 && featured !== middle) {
@@ -223,10 +225,15 @@ const home = middle;
 	   작아서 10% 를 더해도 뒷면에 한 줄밖에 실리지 않았습니다. 화면 폭이
 	   허락하는 만큼 더 키웁니다. */
 	.rail {
-		/* 열린 카드를 키우고 싶은 배율. 실제로 쓰는 값은 스크립트가 이 값과
-		   화면 폭 가운데 작은 쪽으로 정해 `--open-scale` 에 적어 줍니다. */
-		--open-want: 1.1;
-		--open-scale: 1.1;
+		/* 열린 카드는 키우지 않습니다.
+		 *
+		 *  예전에는 1.1배(좁은 화면은 1.45배)로 키웠습니다. `transform` 으로
+		 *  키우는 것은 카드를 제 크기로 한 번 그려 놓고 그 그림을 늘리는
+		 *  일이라, 뒷면의 글이 원래 크기의 해상도로 늘어나 흐려졌습니다.
+		 *  뒤집히는 3차원 변형까지 걸려 있어 브라우저가 다시 그리지도
+		 *  않습니다. 키우는 대신 뒷면의 글자와 여백을 화면 크기별로 따로
+		 *  잡습니다 — 넓은 화면과 좁은 화면의 뒷면은 서로 다른 판입니다. */
+		--open-scale: 1;
 		/* 자리들이 모두 절대 위치라 줄이 제 높이를 스스로 갖지 못합니다.
 		   카드 한 장의 높이에 부채가 내려앉는 깊이를 더한 값을 스크립트가
 		   재서 넣습니다. 식으로 어림해 두었더니 제목 줄의 실제 높이만큼
@@ -321,8 +328,8 @@ const home = middle;
 		   거울처럼 비칩니다. */
 		backface-visibility: hidden;
 		-webkit-backface-visibility: hidden;
-		backdrop-filter: var(--card-blur);
-		-webkit-backdrop-filter: var(--card-blur);
+		/* 배경 흐림은 걷었습니다. 바탕이 꽉 차 있으므로 흐릴 것이 뒤에
+		   없고, 다섯 장이 겹쳐 서면 그 계산만 다섯 번 돌았습니다. */
 		text-align: left;
 		box-shadow:
 			var(--glass-rim),
@@ -388,7 +395,7 @@ const home = middle;
 	   어두운 바탕에는 흰 실선입니다. 회색이 섞인 실선은 바탕색을 받아
 	   그림 가장자리에 때처럼 앉습니다. */
 	.card[data-face='paper'] {
-		--face-fill: rgb(255 255 255 / 0.74);
+		--face-fill: rgb(255 255 255 / 0.9);
 		--face-solid: var(--color-card);
 		--face-ink: var(--color-card-text);
 		--face-line: rgb(0 0 0 / 0.1);
@@ -401,7 +408,7 @@ const home = middle;
 	.card[data-face='tint'] {
 		/* 실제 값은 카드마다 인라인으로 넘어옵니다(`--face-fill`). 이 줄은
 		   그것이 없을 때를 위한 자리로, 색지 없이 흰 종이로 섭니다. */
-		--face-fill: rgb(255 255 255 / 0.74);
+		--face-fill: rgb(255 255 255 / 0.9);
 		--face-solid: var(--face-bg);
 		--face-ink: var(--color-card-text);
 		--face-line: rgb(0 0 0 / 0.1);
@@ -412,7 +419,7 @@ const home = middle;
 	}
 
 	.card[data-face='ink'] {
-		--face-fill: rgb(27 27 27 / 0.66);
+		--face-fill: rgb(27 27 27 / 0.88);
 		--face-solid: #1b1b1b;
 		--face-ink: var(--color-text);
 		--face-line: rgb(255 255 255 / 0.1);
@@ -422,16 +429,16 @@ const home = middle;
 		--face-faint: rgb(255 255 255 / 0.34);
 	}
 
+	/* 두 면 다 바탕을 꽉 채웁니다.
+	 *
+	 *  앞면은 유리처럼 반쯤 비쳐 두었습니다. 한 장일 때는 재료가 되지만
+	 *  다섯 장이 겹쳐 서면 뒤에 선 카드의 그림이 그대로 읽혀서, 부채가
+	 *  서로의 그림을 섞은 한 덩어리로 보입니다. 카드는 종이 한 장이고,
+	 *  종이는 뒤가 비치지 않습니다. */
 	.card__front,
 	.card__back {
-		background: var(--face-fill);
-		color: var(--face-ink);
-	}
-
-	/* 뒷면은 읽는 면입니다. 글이 앉을 자리라 바탕을 꽉 채웁니다 — 반쯤
-	   비친 바탕 위의 본문은 뒤엣것과 겹쳐 읽기 어렵습니다. */
-	.card__back {
 		background: var(--face-solid);
+		color: var(--face-ink);
 	}
 
 	/* ── 앞면 ────────────────────────────────────────────────────────── */
@@ -739,26 +746,22 @@ const home = middle;
 	/* 배경 흐림을 걷고 색만 남깁니다. 흐림은 스크롤하는 동안 매 프레임 다시
 	   계산되는데, 카드가 다섯 장이면 그 값을 작은 기기가 먼저 치릅니다. */
 	@media (max-width: 48rem) {
-		.rail {
-			--open-want: 1.45;
-			--open-scale: 1.45;
-		}
-
-		/* 좁은 화면의 뒷면 글을 한 단 내립니다. 열린 카드는 커져 있으므로
-		   글자도 그만큼 확대되어 놓입니다 — 같은 크기로 두면 카드 안에서
-		   글이 화면만큼 커 보입니다. */
+		/* 좁은 화면의 뒷면.
+		 *
+		 *  카드를 키우지 않으므로 여기 적는 크기가 화면에 그대로 나옵니다.
+		 *  확대를 전제로 잡아 두었던 값(본문 11px)은 이제 너무 작습니다. */
 		.card__heading {
 			font-size: 1rem;
 		}
 
 		.card__text {
-			font-size: 0.6875rem;
-			line-height: 1.6;
+			font-size: 0.75rem;
+			line-height: 1.65;
 		}
 
 		.card__by,
 		.card__cta {
-			font-size: 0.625rem;
+			font-size: 0.6875rem;
 		}
 
 		.card__name {
@@ -852,29 +855,30 @@ const home = middle;
 			const width = slots[0]?.offsetWidth ?? 0;
 			if (width > 0) arcR = width * ARC_RATIO;
 
-			/* 열린 카드가 커질 수 있는 한계.
-			 *
-			 *  좁은 화면에서는 1.45배가 화면을 넘습니다 — 375px 화면에서
-			 *  275px 짜리 카드가 399px 이 되어, 양옆의 글이 화면 밖으로
-			 *  나갑니다. 페이지가 어디서나 지키는 좌우 16px 을 남기고 들어갈
-			 *  수 있는 만큼만 키웁니다.
-			 *
-			 *  CSS 에서 적을 수 없어 여기서 잽니다: 길이를 길이로 나누는
-			 *  계산은 CSS 에 없고, 카드 폭은 `clamp()` 로 정해지므로 식만
-			 *  보고는 값을 알 수 없습니다. */
-			if (width > 0) {
-				const room = document.documentElement.clientWidth - 32;
-				const ceiling = room / width;
-				const wanted = Number.parseFloat(getComputedStyle(rail).getPropertyValue('--open-want')) || 1.45;
-				rail.style.setProperty('--open-scale', String(Math.min(wanted, Math.max(1, ceiling))));
-			}
-
 			const height = cards[0]?.offsetHeight ?? 0;
 			/* 눈에 보이는 가장 바깥 카드가 내려앉는 깊이. 그 아래로 한 뼘만
 			   더 둡니다 — 여기 남는 만큼이 카드와 다음 줄 사이의 빈자리가
 			   되므로, 어림한 값을 크게 잡아 둘 자리가 아닙니다. */
-			const drop = (1 - Math.cos((2 * FAN_STEP * Math.PI) / 180)) * arcR;
+			const lean = (2 * FAN_STEP * Math.PI) / 180;
+			const drop = (1 - Math.cos(lean)) * arcR;
 			if (height > 0) rail.style.setProperty('--rail-h', `${Math.round(height + drop + 4)}px`);
+
+			/* 줄의 발치 아래로 카드가 삐져나오는 깊이.
+			 *
+			 *  기운 카드는 제 상자보다 큰 자리를 그립니다 — 18도 기운 카드가
+			 *  그려지는 상자의 높이는 `폭·sin18 + 높이·cos18` 이고, 그 늘어난
+			 *  만큼의 절반이 아래로 내려갑니다. 줄은 내려앉는 깊이(`drop`)와
+			 *  4px 을 이미 제 안에 두고 있으므로, 그것을 뺀 나머지가 정말로
+			 *  줄 밖으로 나가는 깊이입니다.
+			 *
+			 *  이 값을 페이지가 읽습니다. 카드 아래에 둘 여백을 카드 폭의
+			 *  몇 배로 어림하던 것을 대신합니다 — 어림한 값은 1440px 에서
+			 *  220px 이었고, 실제로 필요한 것은 60px 남짓입니다. */
+			if (height > 0 && width > 0) {
+				const tilted = (width * Math.sin(lean) + height * Math.cos(lean) - height) / 2;
+				const spill = Math.max(0, Math.round(tilted - 4));
+				document.documentElement.style.setProperty('--rail-spill', `${spill}px`);
+			}
 		};
 
 		/** 한 칸의 너비. `--rail-step` 이 카드 폭의 0.65 이므로 거기서 뽑습니다.

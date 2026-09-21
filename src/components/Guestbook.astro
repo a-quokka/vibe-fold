@@ -122,17 +122,15 @@
 		transition-duration: 140ms;
 	}
 
-	/* 좁은 화면에서는 발치 가운데에 섭니다. 오른쪽 구석은 엄지가 닿기에는
-	   좋지만, 그 자리에서 발치의 서명과 링크 위에 겹쳐 앉았습니다.
-	   홈은 예외입니다. 그 페이지에는 참여하기가 이미 가운데에 서 있고, 그
-	   단추는 눌리면 세 갈래를 위쪽으로 96px 까지 펼칩니다 — 가운데에 하나
-	   더 세우면 펼쳐지는 갈래와 부딪힙니다. */
-	@media (max-width: 48rem) {
-		body:not(.page-home) .gb-open {
-			right: auto;
-			left: 50%;
-			translate: -50% 0;
-		}
+	/* 발치 가운데에 섭니다.
+	 *
+	 *  오른쪽 구석은 엄지가 닿기에는 좋지만, 그 자리에서 발치의 서명과 링크
+	 *  위에 겹쳐 앉았습니다. 이 단추는 볼륨 페이지에서만 서고(홈에서는 숨어
+	 *  있습니다), 그 페이지의 발치에는 가운데를 다투는 것이 없습니다. */
+	.gb-open {
+		right: auto;
+		left: 50%;
+		translate: -50% 0;
 	}
 
 	.gb-open:focus-visible {
@@ -265,7 +263,9 @@
 		margin: 0;
 		color: #ffffff;
 		font-size: var(--text-body);
-		font-weight: 600;
+		/* 한 단 낮춤. 이 글꼴은 600~700 을 Bold 한 벌로, 400~500 을 Medium
+		   한 벌로 그리므로 600 에서 한 단 내리는 것은 500 입니다. */
+		font-weight: 500;
 		line-height: 1.2;
 	}
 
@@ -326,7 +326,7 @@
 		color: #111111;
 		font-family: inherit;
 		font-size: var(--text-body);
-		font-weight: 600;
+		font-weight: 500;
 		line-height: 1.2;
 		cursor: pointer;
 	}
