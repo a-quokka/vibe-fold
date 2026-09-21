@@ -103,6 +103,8 @@ if (featured > -1 && featured !== middle) {
  *  카드가 꼭대기에서 얼마나 내려오는지입니다. 손으로 적은 값이 아니라
  *  원에서 나온 값이라, 작품이 몇 편이 되든 같은 호를 그립니다. */
 const FAN_STEP = 9;
+/** 카드가 512px 일 때의 반지름. 실제로 쓰는 값은 카드 폭에 비례해
+ *  스크립트가 다시 셉니다. */
 const ARC_R = 1400;
 
 const dealt = dressed.map((work) => ({
@@ -783,7 +785,13 @@ const home = middle;
 		/* 부채의 모양. 한 칸 벌어질 때마다 기우는 각도와, 그 각도로 내려앉는
 		   원호의 반지름입니다. 프런트매터가 쓰는 값과 같아야 합니다. */
 		const FAN_STEP = 9;
-		const ARC_R = 1400;
+		/* 반지름은 카드 폭에 비례합니다. 1400px 은 카드가 512px(32rem)일 때의
+		   값이고, 그 비율을 그대로 씁니다. 고정값으로 두었더니 좁은 화면에서
+		   카드만 작아지고 내려앉는 깊이는 그대로여서, 가운데 카드 아래로
+		   빈자리가 크게 남았습니다. 부채는 어느 크기에서나 같은 모양이어야
+		   같은 부채로 보입니다. */
+		const ARC_RATIO = 1400 / 512;
+		let arcR = 1400;
 		/* 부채에서 눈에 보이는 폭. 이보다 멀어진 카드는 꺼집니다 — 두 벌의
 		   이음매가 지나가는 자리가 여기 바깥입니다. */
 		const VISIBLE = 2.6;
@@ -807,8 +815,15 @@ const home = middle;
 		 *  `offsetHeight` 는 변형을 세지 않으므로, 기울기와 무관하게 똑바로
 		 *  선 카드의 높이를 돌려줍니다. */
 		const measure = () => {
+			const width = slots[0]?.offsetWidth ?? 0;
+			if (width > 0) arcR = width * ARC_RATIO;
+
 			const height = cards[0]?.offsetHeight ?? 0;
-			if (height > 0) rail.style.setProperty('--rail-h', `${Math.round(height + 72)}px`);
+			/* 눈에 보이는 가장 바깥 카드가 내려앉는 깊이. 그 아래로 한 뼘만
+			   더 둡니다 — 여기 남는 만큼이 카드와 다음 줄 사이의 빈자리가
+			   되므로, 어림한 값을 크게 잡아 둘 자리가 아닙니다. */
+			const drop = (1 - Math.cos((2 * FAN_STEP * Math.PI) / 180)) * arcR;
+			if (height > 0) rail.style.setProperty('--rail-h', `${Math.round(height + drop + 4)}px`);
 		};
 
 		/** 한 칸의 너비. `--rail-step` 이 카드 폭의 0.65 이므로 거기서 뽑습니다.
@@ -824,7 +839,7 @@ const home = middle;
 				slot.style.setProperty('--x', `${(pos * step).toFixed(1)}px`);
 				slot.style.setProperty(
 					'--y',
-					`${((1 - Math.cos((lean * Math.PI) / 180)) * ARC_R).toFixed(1)}px`,
+					`${((1 - Math.cos((lean * Math.PI) / 180)) * arcR).toFixed(1)}px`,
 				);
 				slot.style.setProperty('--lean', `${lean.toFixed(2)}deg`);
 				// 지금 몇 칸째에 서 있는지. 손 밑의 카드를 한가운데로 부를 때
