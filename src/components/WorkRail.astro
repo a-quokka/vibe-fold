@@ -331,10 +331,23 @@ const home = middle;
 		/* 배경 흐림은 걷었습니다. 바탕이 꽉 차 있으므로 흐릴 것이 뒤에
 		   없고, 다섯 장이 겹쳐 서면 그 계산만 다섯 번 돌았습니다. */
 		text-align: left;
+		/* 카드 뒤의 그림자.
+		 *
+		 *  네 겹입니다. 종이 밑에 바로 깔리는 짙고 좁은 그늘, 사방으로 고르게
+		 *  퍼지는 그늘, 아래로 떨어지는 넓은 그림자, 그리고 가장자리를 도는
+		 *  실낱 같은 테두리입니다.
+		 *
+		 *  사방으로 퍼지는 겹이 겹쳐 선 카드끼리의 그림자입니다. 부채는 옆으로
+		 *  겹치는데 아래로 떨어지는 그림자만 두면 옆자리에는 아무것도 드리우지
+		 *  않아, 다섯 장이 같은 평면에 붙여 놓은 종이처럼 보입니다.
+		 *
+		 *  유리였을 때 쓰던 윗변의 빛(`--glass-sheen`)은 걷었습니다. 그것은
+		 *  비치는 재료의 두께를 말하는 표시인데, 지금 카드는 종이입니다. */
 		box-shadow:
-			var(--glass-rim),
-			var(--glass-sheen),
-			0 30px 64px -28px rgb(0 0 0 / 0.75);
+			0 2px 6px -2px rgb(0 0 0 / 0.5),
+			0 0 30px -6px rgb(0 0 0 / 0.7),
+			0 30px 64px -24px rgb(0 0 0 / 0.85),
+			0 0 0 0.5px rgb(255 255 255 / 0.08);
 	}
 
 	.card__front,
@@ -1169,11 +1182,42 @@ const home = middle;
 
 		/* ── 카드 열고 닫기 ─────────────────────────────────────────────── */
 
-		cards.forEach((card) => {
+		/** 부채가 한가운데로 돌아오는 데 걸리는 시간. 자리 전환과 같은 값을
+		 *  씁니다(`.slot`, 380ms). 한 박자 더 두어 카드가 완전히 앉은 뒤에
+		 *  뒤집습니다. */
+		const SNAP = 380 + 40;
+
+		/** 지금 한가운데로 부르고 있는 카드. 도는 동안 다른 카드를 또 누르면
+		 *  앞의 약속을 버리고 새 카드를 부릅니다. */
+		let calling: number | null = null;
+
+		cards.forEach((card, index) => {
 			card.querySelector<HTMLElement>('[data-open-card]')?.addEventListener('click', () => {
 				// 끌고 난 직후의 클릭은 뒤집으려는 뜻이 아닙니다.
 				if (moved) return;
-				openCard(card);
+
+				const slot = slots[index];
+				const pos = Number(slot.dataset.pos ?? 0);
+
+				/* 한가운데에 있는 카드는 곧바로 뒤집습니다. 그렇지 않은 카드는
+				 * 먼저 부채를 돌려 제자리로 부른 뒤에 뒤집습니다 — 손으로 끌어
+				 * 한가운데에 놓고 누르는 것과 같은 순서이고, 뒤집히는 카드가
+				 * 화면을 가로질러 날아오지 않습니다. */
+				if (pos === 0) {
+					openCard(card);
+					return;
+				}
+
+				// 가장 가까운 길로 돕니다. `pos` 는 이미 ±N/2 안으로 접혀
+				// 있으므로, 그만큼 기준을 옮기면 짧은 쪽으로 돌아갑니다.
+				anchor += pos;
+				place();
+
+				if (calling !== null) window.clearTimeout(calling);
+				calling = window.setTimeout(() => {
+					calling = null;
+					openCard(card);
+				}, SNAP);
 			});
 
 			card.querySelector<HTMLElement>('[data-close-card]')?.addEventListener('click', close);
